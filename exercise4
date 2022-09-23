@@ -1,0 +1,7 @@
+4.
+
+Language: Any
+Task: Make a random complex pass phrase generator
+Input: a file containing a list of comma separated words: wordlist.txt
+Output: a random complex pass phrase, example: alien-LEMON-slowly-45, or Record4.Drive1.Work9.Mud3, etc
+Note: You can pick the style/format of the pass phrase so long as it is complex
