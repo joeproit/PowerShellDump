@@ -1,0 +1,12 @@
+6.
+
+Language: Any
+Task: Given a .CSV file of user details, generate a .CSV with Usernames, Email Addresses, and Password
+Input: user.csv with several lines of data
+Output: a .CSV with the same data but also a Username (in First Initial+Last Name format), Email Address (in First Name.Last Name@company.com format), and Password (in Capital First Initial + Lower Last Initial + "#" + 2022 format) columns
+
+Example person: Ben Adams
+
+Example Username: badams
+Example Email Address: ben.adams@company.com
+Example Password: Ba#2022
