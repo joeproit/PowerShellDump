@@ -1,0 +1,19 @@
+2.
+
+Language: Any
+Task: Read a text file with several lines of text, output them to a new text file except: in reverse order, with each line reversed, in upper case.
+Input: a text file
+Output: a text file (but lines are in reverse order, each line is revered, and uppercase)
+Note: an example file, shakespeare.txt is provided, but any text file will do, including this one.
+
+Example Input:
+
+To be, or not to be, that is the question:
+Whether 'tis nobler in the mind to suffer
+The slings and arrows of outrageous fortune,
+
+Example Output:
+
+,ENUTROF SUOEGARTUO FO SWORRA DNA SGNILS EHT
+REFFUS OT DNIM EHT NI RELBON SIT' REHTEHW
+:NOITSEUQ EHT SI TAHT ,EB OT TON RO ,EB OT
