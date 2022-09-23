@@ -11,14 +11,11 @@ Hint: It will be easier with PowerShell 7, but can be done with Windows PowerShe
  
 #>
 
-<# JoePro 09/22/22 
-No error handling
-Stop-Process will confirm, but attempt kill any PID you enter
-
-More mature script would loop objects, validate input, error trap and log
+<# JoePro 09/22/22
+More mature script would validate input, error trap and log
 #>
 
-#Clean variables function
+#MrCleanup
 $Sstart=""
 New-Variable -force -name Sstart -value ( Get-Variable | ForEach-Object { $_.Name } )
 function MrCleanup {
@@ -27,9 +24,11 @@ function MrCleanup {
 
 }
 
+#Get Process(es)
 $processname = Read-Host -Prompt "Enter Process Name to search for...:"
 Get-Process -Name $processname | Format-Table Id,Name
 
+#Kill Process
 $killprocess = Read-Host -Prompt "Enter Process ID to kill...:"
 Stop-Process -Id $killprocess -Force -Confirm 
 
