@@ -1,0 +1,6 @@
+5.
+
+Language: PowerShell
+Task: Make a Toggle-Service function which given a Windows Service will stop it if is running and start it if it is stopped
+Input: A Windows Service
+Output: the Window Service changes state (stopped if running, started if stopped)
