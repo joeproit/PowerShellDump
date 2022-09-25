@@ -22,7 +22,7 @@ do {
     $pass = -join (0..$len | ForEach-Object { $list | Get-Random })
     $spechars = '@#$%^&*-()+='.ToCharArray() #no pipe, brackets, punctuation or slashes
     $regchars = 'A'..'N' + 'P'..'Z' + 'a'..'k' + 'm'..'z' #No cap O or lower-case L 
-    $numchars = '0'..'9' # no zero
+    $numchars = '0'..'9'
     $list = $regchars + $numchars + $spechars #full character list
     [int]$lowercheck = $pass -cmatch '[a-z]' #match lowercase
     [int]$uppercheck = $pass -cmatch '[A-Z]' #match uppercase
