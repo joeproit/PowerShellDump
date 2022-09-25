@@ -1,4 +1,4 @@
-'''
+```
 <# Net System.web is not available in PS Core
  # Figuring different method
 
@@ -39,3 +39,5 @@ $pass
 
 # Help from:
 # https://dev.to/onlyann/user-password-generation-in-powershell-core-1g91
+
+```
