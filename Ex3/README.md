@@ -1,4 +1,4 @@
-```
+```Powershell
 <# Net System.web is not available in PS Core
  # Figuring different method
 
