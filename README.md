@@ -5,6 +5,8 @@ If ($User -eq "UserName") {
   New-Item -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "Start_TrackProgs" -Value 0 -Force
 }
 
-//For "UserName" disable Start Menu from Registry
+/*
+For "UserName" disable Start Menu from Registry
+*/
 
 ```
