@@ -37,7 +37,7 @@ $results = foreach ($user in $users) {
     # Generate username, email, and password based on the specified formats
     $username = ($firstName.Substring(0, 1) + $lastName).ToLower()
     $email = ($firstName.ToLower() + "." + $lastName.ToLower() + "@company.com")
-    $password = ($firstName.Substring(0, 1).ToUpper() + $lastName.Substring(0, 1).ToLower() + "#" + "2022")
+    $password = ($firstName.Substring(0, 1).ToUpper() + $lastName.Substring(0, 1).ToLower() + "#" + "2023")
 
     # Create the user in Active Directory
     $userParams = @{
