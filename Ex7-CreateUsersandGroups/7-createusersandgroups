@@ -1,7 +1,7 @@
 7.
 
 Language: PowerShell:
-Task: Given a .CSV file of user details and a .CSV of group details, great the Users and Groups and add the Users to the matching Groups; and export a .CSV of the user details (including name, username, password, etc) and what group(s) they were added to.
+Task: Given a .CSV file of user details and a .CSV of group details, create the Users and Groups and add the Users to the matching Groups; and export a .CSV of the user details (including name, username, password, etc) and what group(s) they were added to.
 Input: user.csv and group.csv
 Output: users and groups created in AD under the Company OU, and a .CSV with the same data as user.csv, plus username, email, etc and what groups they were added to.
 Formats: Username in First Initial+Last Name format, Email Address in First Name.Last Name@company.com format, and Password in Capital First Initial + Lower Last Initial + "#" + 2022 format. 
