@@ -16,8 +16,6 @@ public class PongForm : Form
         this.Size = new Size(800, 400);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
-        this.KeyPreview = true;
-        this.KeyDown += HandleKeyPress;
 
         // Initialize ball
         ball = new PictureBox
@@ -32,7 +30,8 @@ public class PongForm : Form
         leftPaddle = new Button
         {
             Size = new Size(20, 80),
-            Location = new Point(0, this.ClientSize.Height / 2)
+            Location = new Point(0, this.ClientSize.Height / 2),
+            Enabled = false
         };
         this.Controls.Add(leftPaddle);
 
@@ -40,7 +39,8 @@ public class PongForm : Form
         rightPaddle = new Button
         {
             Size = new Size(20, 80),
-            Location = new Point(this.ClientSize.Width - 20, this.ClientSize.Height / 2)
+            Location = new Point(this.ClientSize.Width - 20, this.ClientSize.Height / 2),
+            Enabled = false
         };
         this.Controls.Add(rightPaddle);
 
@@ -51,11 +51,19 @@ public class PongForm : Form
         timer.Start();
     }
 
-    private void HandleKeyPress(object sender, KeyEventArgs e)
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+
+        // Hook up application-wide key handler
+        Application.AddMessageFilter(new MessageFilter(this));
+    }
+
+    private void HandleKeyPress(Keys key)
     {
         const int paddleSpeed = 20;
 
-        switch (e.KeyCode)
+        switch (key)
         {
             case Keys.W:
                 leftPaddle.Top = Math.Max(0, leftPaddle.Top - paddleSpeed);
@@ -84,6 +92,29 @@ public class PongForm : Form
         // Check collision with paddles
         if (ball.Bounds.IntersectsWith(leftPaddle.Bounds) || ball.Bounds.IntersectsWith(rightPaddle.Bounds))
             dx *= -1;
+    }
+
+    class MessageFilter : IMessageFilter
+    {
+        private PongForm form;
+
+        public MessageFilter(PongForm form)
+        {
+            this.form = form;
+        }
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            // Look for WM_KEYDOWN message
+            if (m.Msg == 0x100)
+            {
+                Keys key = (Keys)m.WParam.ToInt32();
+
+                form.HandleKeyPress(key);
+            }
+
+            return false;
+        }
     }
 }
 "@ -ReferencedAssemblies System.Windows.Forms,System.Drawing
