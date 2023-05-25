@@ -16,6 +16,8 @@ public class PongForm : Form
         this.Size = new Size(800, 400);
         this.FormBorderStyle = FormBorderStyle.FixedDialog;
         this.MaximizeBox = false;
+        this.KeyPreview = true;
+        this.KeyDown += HandleKeyPress;
 
         // Initialize ball
         ball = new PictureBox
@@ -47,6 +49,27 @@ public class PongForm : Form
         timer.Interval = 50; // change this for speed of game
         timer.Tick += Tick;
         timer.Start();
+    }
+
+    private void HandleKeyPress(object sender, KeyEventArgs e)
+    {
+        const int paddleSpeed = 20;
+
+        switch (e.KeyCode)
+        {
+            case Keys.W:
+                leftPaddle.Top = Math.Max(0, leftPaddle.Top - paddleSpeed);
+                break;
+            case Keys.S:
+                leftPaddle.Top = Math.Min(this.ClientSize.Height - leftPaddle.Height, leftPaddle.Top + paddleSpeed);
+                break;
+            case Keys.Up:
+                rightPaddle.Top = Math.Max(0, rightPaddle.Top - paddleSpeed);
+                break;
+            case Keys.Down:
+                rightPaddle.Top = Math.Min(this.ClientSize.Height - rightPaddle.Height, rightPaddle.Top + paddleSpeed);
+                break;
+        }
     }
 
     private void Tick(object sender, EventArgs e)
