@@ -6,7 +6,7 @@ using System.Windows.Forms;
 public class PongForm : Form
 {
     private PictureBox ball;
-    private Button leftPaddle, rightPaddle;
+    private Panel leftPaddle, rightPaddle;
     private Timer timer;
     private int dx = 5, dy = 5;
 
@@ -27,20 +27,20 @@ public class PongForm : Form
         this.Controls.Add(ball);
 
         // Initialize left paddle
-        leftPaddle = new Button
+        leftPaddle = new Panel
         {
             Size = new Size(20, 80),
             Location = new Point(0, this.ClientSize.Height / 2),
-            Enabled = false
+            BackColor = Color.Blue
         };
         this.Controls.Add(leftPaddle);
 
         // Initialize right paddle
-        rightPaddle = new Button
+        rightPaddle = new Panel
         {
             Size = new Size(20, 80),
             Location = new Point(this.ClientSize.Width - 20, this.ClientSize.Height / 2),
-            Enabled = false
+            BackColor = Color.Blue
         };
         this.Controls.Add(rightPaddle);
 
