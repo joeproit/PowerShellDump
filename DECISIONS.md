@@ -272,3 +272,40 @@ Pester 5.x's `-BeNullOrEmpty` operator treats empty hashtables as "empty" and fa
 - Constructor behavior (3 tests) - random key initialization, 32-byte length, empty Parameters initialization
 
 **Total:** 16 test cases, all passing.
+
+---
+
+### 10_CompositionVsInheritance.ps1 — 2026-04-26
+
+**Decision:** Implemented LoggingSecureChannel using composition to wrap ComposedSecureChannel; added four concrete implementations (AesGcmCipher, AesCbcCipher, RsaSigner, HmacSigner) demonstrating pluggable dependencies; created comprehensive Pester test suite verifying cipher/signer swapping without modifying SecureChannel.
+
+**Rationale:** Composition pattern enables runtime dependency injection and algorithm swapping without inheritance coupling; tests prove ComposedSecureChannel has no direct reference to specific cipher implementations.
+
+**Implementation Details:**
+- LoggingSecureChannel wraps ComposedSecureChannel (composition, not inheritance)
+- Maintains internal log using System.Collections.Generic.List<string>
+- Logs Send operations with byte count and peer ID
+- Logs Receive operations with source peer
+- Provides GetLog() and ClearLog() methods for log access
+- AesGcmCipher: AES-256-GCM with 12-byte nonce, 16-byte tag
+- AesCbcCipher: AES-256-CBC with PKCS7 padding, 16-byte IV
+- RsaSigner: RSA-PSS with SHA256, 2048-bit keys
+- HmacSigner: HMAC-SHA256 with 256-bit key, constant-time comparison
+
+**Key Discovery - Composition vs Inheritance:**
+ComposedSecureChannel accepts ICipher2 and ISigner2 interfaces at construction, enabling complete algorithm swapping without code changes. Tests demonstrate the same SecureChannel class working correctly with AesGcmCipher+RsaSigner, AesCbcCipher+HmacSigner, and mixed combinations without any modifications to SecureChannel itself. This proves composition's flexibility advantage over inheritance hierarchies.
+
+**Test Coverage:**
+- ComposedSecureChannel with AesGcmCipher+RsaSigner (3 tests) - construction, send/receive, signature rejection
+- Cipher swapping (2 tests) - AesCbcCipher works without SecureChannel modification, independent instances with different ciphers
+- Signer swapping (1 test) - HmacSigner works without SecureChannel modification
+- Edge cases (2 tests) - empty messages, large messages (10KB)
+- LoggingSecureChannel logging (4 tests) - Send logging, Receive logging, log clearing, accumulation
+- LoggingSecureChannel composition (1 test) - works with AesCbcCipher via composition
+- AesGcmCipher implementation (2 tests) - encrypt/decrypt, nonce randomization
+- AesCbcCipher implementation (2 tests) - encrypt/decrypt, IV randomization
+- RsaSigner implementation (3 tests) - sign/verify, invalid signature rejection, wrong data rejection
+- HmacSigner implementation (3 tests) - sign/verify, invalid signature rejection, wrong length rejection
+- Composition validation (1 test) - regex verification that ComposedSecureChannel has no hardcoded cipher instantiation
+
+**Total:** 24 test cases, all passing.
