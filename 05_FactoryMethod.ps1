@@ -48,22 +48,42 @@ class AesCryptoAlgorithm : CryptoAlgorithm {
 
 class CryptoAlgorithmFactory {
     static [CryptoAlgorithm] Create([string]$algorithmName) {
-        switch ($algorithmName.ToUpper()) {
-            'AES-256-GCM' {
-                $key = [byte[]]::new(32)
-                [System.Security.Cryptography.RandomNumberGenerator]::Fill($key)
-                return [AesCryptoAlgorithm]::new($key)
-            }
-            default {
-                throw [System.ArgumentException]"Unknown algorithm: $algorithmName"
-            }
+        $upper = $algorithmName.ToUpper()
+        if ($upper -eq 'AES-256-GCM') {
+            $key = [byte[]]::new(32)
+            [System.Security.Cryptography.RandomNumberGenerator]::Fill($key)
+            return [AesCryptoAlgorithm]::new($key)
+        }
+        elseif ($upper -eq 'CHACHA20') {
+            throw [System.NotSupportedException]"ChaCha20 is not yet implemented in this library"
+        }
+        else {
+            throw [System.ArgumentException]"Unknown algorithm: $algorithmName"
         }
     }
 
     static [CryptoAlgorithm] Create([string]$algorithmName, [byte[]]$key) {
-        switch ($algorithmName.ToUpper()) {
-            'AES-256-GCM' { return [AesCryptoAlgorithm]::new($key) }
-            default { throw [System.ArgumentException]"Key overload not supported for: $algorithmName" }
+        $upper = $algorithmName.ToUpper()
+        if ($upper -eq 'AES-256-GCM') {
+            return [AesCryptoAlgorithm]::new($key)
+        }
+        elseif ($upper -eq 'CHACHA20') {
+            throw [System.NotSupportedException]"ChaCha20 is not yet implemented in this library"
+        }
+        else {
+            throw [System.ArgumentException]"Key overload not supported for: $algorithmName"
         }
     }
 }
+
+#region Agent Task Implementation
+<#
+    Agent Task: Add 'ChaCha20' branch to CryptoAlgorithmFactory.Create()
+    
+    Implementation Notes:
+    - Added 'CHACHA20' case to both Create() overloads
+    - Throws NotSupportedException with clear message indicating it's not yet implemented
+    - Case-insensitive matching via ToUpper() ensures 'ChaCha20', 'chacha20', 'CHACHA20' all work
+    - Unknown algorithms still throw ArgumentException as per existing behavior
+#>
+#endregion

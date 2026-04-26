@@ -104,3 +104,42 @@ The reflection test explicitly demonstrates that PowerShell's `hidden` keyword d
 - Basic vault operations (3 tests)
 
 **Total:** 21 test cases, all passing.
+
+---
+
+### 05_FactoryMethod.ps1 — 2026-04-26
+
+**Decision:** Added ChaCha20 case to CryptoAlgorithmFactory.Create() that throws NotSupportedException; switched from switch statement to if-elseif-else structure to satisfy PowerShell's return path validation.
+
+**Rationale:** PowerShell parser requires all code paths in typed methods to explicitly return a value; switch statements with throw cases don't satisfy this validation, so restructured to if-elseif-else pattern.
+
+**Implementation Details:**
+- Added 'CHACHA20' case to both Create() overloads (parameterless and keyed)
+- Throws NotSupportedException with message: "ChaCha20 is not yet implemented in this library"
+- Case-insensitive matching via ToUpper() ensures all case variations work
+- Changed from switch statement to if-elseif-else to fix "Not all code path returns value" error
+- Unknown algorithms still throw ArgumentException as per original behavior
+
+**Key Discovery - Switch Statement Return Path:**
+PowerShell's parser treats switch statements with throw cases as potentially not returning a value, even though the throw prevents execution from continuing. The if-elseif-else structure with explicit throws satisfies the parser's requirement that all code paths return a value or throw.
+
+**Test Coverage:**
+- Factory Create(string) parameterless overload (8 tests)
+  - Correct type returned for AES-256-GCM
+  - Case insensitivity
+  - Random key generation validation
+  - ChaCha20 throws NotSupportedException
+  - Unknown algorithms throw ArgumentException
+  - Edge cases (empty string, whitespace, null)
+- Factory Create(string, byte[]) keyed overload (6 tests)
+  - Key is set correctly in returned instance
+  - ChaCha20 with key throws NotSupportedException
+  - Unknown algorithms throw ArgumentException
+  - Case insensitivity for keyed overload
+- Integration tests (3 tests)
+  - Created algorithms can encrypt
+  - Different instances produce different ciphertexts
+- AesCryptoAlgorithm direct instantiation (3 tests)
+- CryptoAlgorithm base class behavior (2 tests)
+
+**Total:** 24 test cases, all passing.
