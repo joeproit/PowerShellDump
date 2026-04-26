@@ -45,4 +45,12 @@ class CloneableConfig {
         foreach ($k in $overrides.Keys) { $copy.$k = $overrides[$k] }
         return $copy
     }
+
+    [CloneableConfig] CloneWithNewKey() {
+        $copy = $this.Clone()
+        # Generate fresh random KeyMaterial
+        $copy.KeyMaterial = [byte[]]::new($this.KeyMaterial.Length)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($copy.KeyMaterial)
+        return $copy
+    }
 }

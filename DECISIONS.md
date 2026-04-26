@@ -244,3 +244,31 @@ PowerShell's `3>&1 | Tee-Object` captures warnings but wraps the result in an Ob
 - Edge Cases (2 tests) - single-instance pool, large pool size
 
 **Total:** 16 test cases, all passing.
+
+---
+
+### 09_Prototype.ps1 — 2026-04-26
+
+**Decision:** Implemented CloneWithNewKey() method that deep-clones CloneableConfig and generates fresh cryptographically random KeyMaterial; fixed Pester 5.x type assertions to avoid -BeNullOrEmpty on empty hashtables and -BeOfType on byte arrays.
+
+**Rationale:** Prototype pattern enables creating new crypto configs from existing ones without re-running expensive initialization; CloneWithNewKey() combines config cloning with key rotation for security-sensitive scenarios.
+
+**Implementation Details:**
+- CloneWithNewKey() calls Clone() then regenerates KeyMaterial using RandomNumberGenerator.Fill()
+- Preserves all config properties (Algorithm, KeyBits, Parameters) while rotating the key
+- Uses [System.Buffer]::BlockCopy() for true deep copy of byte arrays (no reference sharing)
+- Clone() and CloneWith() already implemented with proper deep-copy semantics
+
+**Key Discovery - Pester Empty Collection Assertions:**
+Pester 5.x's `-BeNullOrEmpty` operator treats empty hashtables as "empty" and fails the assertion. An empty hashtable is a valid initialized object, so changed tests to use `Should -BeOfType [hashtable]` to verify initialization without checking emptiness.
+
+**Key Discovery - Pester Array Type Assertions:**
+`$array | Should -BeOfType [byte[]]` pipes individual array elements to the assertion, checking each element's type instead of the array itself. Changed to `$array.GetType().Name | Should -Be "Byte[]"` to verify the array type correctly.
+
+**Test Coverage:**
+- Clone() method (5 tests) - independent copies, mutation isolation, deep byte[] copy, empty/populated hashtables
+- CloneWith() method (4 tests) - override application, Parameters override, KeyMaterial override, empty overrides
+- CloneWithNewKey() method (4 tests) - config cloning with fresh key, cryptographic randomness, mutation isolation, length preservation
+- Constructor behavior (3 tests) - random key initialization, 32-byte length, empty Parameters initialization
+
+**Total:** 16 test cases, all passing.
