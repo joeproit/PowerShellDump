@@ -407,3 +407,38 @@ Execute() method is not marked as `final` or `sealed` in PowerShell, but subclas
 - Step log functionality (3 tests) - empty before execution, accumulation across multiple calls, array copy return
 
 **Total:** 23 test cases, all passing.
+
+---
+
+### 14_StateMachine.ps1 — 2026-04-26
+
+**Decision:** Added Suspended state to KeyState enum; implemented Suspend() (Active→Suspended) and Resume() (Suspended→Active) transitions; updated Revoke() to allow revocation from Suspended state; created comprehensive Pester test suite with 52 tests covering all legal and illegal state transitions.
+
+**Rationale:** State machine pattern enforces cryptographic key lifecycle invariants through enum-driven state transitions; adding suspend/resume capability enables temporary key deactivation without revocation, useful for security incidents or compliance holds.
+
+**Implementation Details:**
+- Extended KeyState enum: `Generated; Active; Suspended; Rotated; Revoked; Destroyed`
+- Suspend() method: Active→Suspended transition with history logging
+- Resume() method: Suspended→Active transition with history logging
+- Updated Revoke() to accept Active, Suspended, or Rotated states (Suspended keys can be revoked)
+- All transitions enforce state preconditions via _assertState() helper
+- History log records every state change with timestamp and message
+- Destroy() zeroes key material using Array.Clear() before setting length to 0
+
+**Key Discovery - State Machine Coverage:**
+Testing state machines requires comprehensive illegal transition coverage. With 6 states (Generated, Active, Suspended, Rotated, Revoked, Destroyed) and 7 state-changing methods (Activate, Suspend, Resume, Rotate, Revoke, Destroy, GetMaterial), the test matrix includes 52 test cases covering all valid transitions and all invalid transitions that should throw InvalidOperationException.
+
+**Test Coverage:**
+- Initial state verification (3 tests) - Generated state, 32-byte key material, history initialization
+- Valid transitions (8 tests) - all legal state paths including new Suspend/Resume
+- Illegal Activate() transitions (5 tests) - throws from all states except Generated
+- Illegal Suspend() transitions (5 tests) - throws from all states except Active
+- Illegal Resume() transitions (5 tests) - throws from all states except Suspended
+- Illegal Rotate() transitions (6 tests) - throws from non-Active states, successor validation
+- Illegal Revoke() transitions (3 tests) - throws from Generated/Revoked/Destroyed
+- Illegal Destroy() transitions (5 tests) - throws from all states except Revoked
+- Key material security (6 tests) - GetMaterial() only works in Active state, Destroy() zeroes material
+- History logging (4 tests) - records all transitions, includes state in entries, rotation logs successor ID
+- Complex state flows (2 tests) - multiple suspend/resume cycles, revoke while suspended
+
+**Total:** 52 test cases, all passing.

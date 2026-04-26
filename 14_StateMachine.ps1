@@ -16,7 +16,7 @@
       - No persistence of state to disk
 #>
 
-enum KeyState { Generated; Active; Rotated; Revoked; Destroyed }
+enum KeyState { Generated; Active; Suspended; Rotated; Revoked; Destroyed }
 
 class CryptoKeyLifecycle {
     [string]$KeyId
@@ -56,8 +56,20 @@ class CryptoKeyLifecycle {
         $this._log("Rotated -> successor $($successor.KeyId)")
     }
 
+    [void] Suspend() {
+        $this._assertState([KeyState]::Active)
+        $this.State = [KeyState]::Suspended
+        $this._log('Suspended')
+    }
+
+    [void] Resume() {
+        $this._assertState([KeyState]::Suspended)
+        $this.State = [KeyState]::Active
+        $this._log('Resumed')
+    }
+
     [void] Revoke([string]$reason) {
-        if ($this.State -notin @([KeyState]::Active, [KeyState]::Rotated)) {
+        if ($this.State -notin @([KeyState]::Active, [KeyState]::Suspended, [KeyState]::Rotated)) {
             throw [System.InvalidOperationException]"Cannot revoke key in state $($this.State)"
         }
         $this.State     = [KeyState]::Revoked
