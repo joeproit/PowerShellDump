@@ -67,10 +67,22 @@ class CryptoConfigBuilder {
         return $this
     }
 
+    [CryptoConfigBuilder] WithEcdhKeyExchange() {
+        $this._config.Algorithm = 'ECDH-P256'
+        $this._config.KeyBits   = 256
+        return $this
+    }
+
     [CryptoConfig] Build() {
         if ($this._config.KdfIterations -lt 10000) {
             throw [System.InvalidOperationException]'PBKDF2 iterations too low (min 10000)'
         }
+        
+        # Validate ECDH requires 256-bit keys
+        if ($this._config.Algorithm -eq 'ECDH-P256' -and $this._config.KeyBits -ne 256) {
+            throw [System.InvalidOperationException]'ECDH-P256 requires 256-bit keys'
+        }
+        
         if ($this._config.KeyBits -notin @(128, 192, 256)) {
             throw [System.InvalidOperationException]"Invalid key size: $($this._config.KeyBits)"
         }
@@ -84,4 +96,9 @@ class CryptoConfigBuilder {
 #     .WithAudit()
 #     .WithRateLimit(500)
 #     .WithPbkdf2(200000)
+#     .Build()
+#
+# $ecdhConfig = [CryptoConfigBuilder]::new()
+#     .WithEcdhKeyExchange()
+#     .WithAudit()
 #     .Build()

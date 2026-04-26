@@ -206,3 +206,41 @@ PowerShell cannot parse multi-line fluent chains like `[Builder]::new().Method1(
 - Edge cases (4 tests) - default builds, independent builders, multiple Build() calls
 
 **Total:** 46 test cases, all passing.
+
+---
+
+### 08_ObjectPool.ps1 — 2026-04-26
+
+**Decision:** Added comprehensive thread-safety documentation block explaining ConcurrentQueue usage; created Pester test suite with platform-agnostic type assertions and proper warning suppression.
+
+**Rationale:** Object pooling is inherently multi-threaded in production scenarios; documentation explains lock-free design and trade-offs; tests verify rent-all/return-all cycle and real crypto operations.
+
+**Implementation Details:**
+- Stats() method was already implemented (lines 68-77)
+- Added 27-line comment block documenting:
+  - Lock-free CAS operations in ConcurrentQueue
+  - Non-blocking concurrent access benefits
+  - FIFO ordering for cache locality
+  - Thread-safe Count property behavior
+  - Statistics counter atomicity caveat (use Interlocked.Increment for production)
+  - Alternative: BlockingCollection for bounded pools with blocking behavior
+- Tests use `Should -BeOfType [System.Security.Cryptography.RSA]` instead of type name strings
+- Warning suppression uses `3> $null` instead of `3>&1 | Tee-Object` to avoid array wrapping
+
+**Key Discovery - Platform RSA Types:**
+RSA implementation types vary by platform: Windows returns `RSACryptoServiceProvider`, macOS returns `RSASecurityTransforms`. Testing against the abstract base type `[System.Security.Cryptography.RSA]` ensures cross-platform compatibility.
+
+**Key Discovery - Warning Stream Capture:**
+PowerShell's `3>&1 | Tee-Object` captures warnings but wraps the result in an Object[] array containing both the return value and warning messages. This breaks method calls expecting a single RSA instance. Using `3> $null` suppresses warnings without affecting the return value.
+
+**Test Coverage:**
+- Construction and Warmup (2 tests) - pre-warming, correct key size
+- Rent and Return Cycle (3 tests) - rent from pool, return to pool, reuse instances
+- Pool Exhaustion (2 tests) - on-demand creation, excess disposal
+- Rent All and Verify Empty Pool (1 test) - drain pool by renting all, verify empty, return all, verify refilled
+- Drain (2 tests) - disposes all pooled instances, works with partially rented pool
+- Stats Method (2 tests) - returns correct hashtable structure, tracks operations accurately
+- Real Crypto Operations (2 tests) - sign/verify with pooled RSA, multiple independent operations
+- Edge Cases (2 tests) - single-instance pool, large pool size
+
+**Total:** 16 test cases, all passing.

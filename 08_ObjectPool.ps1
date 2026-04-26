@@ -76,6 +76,34 @@ class RsaPool {
     }
 }
 
+<#
+.NOTES
+    Thread Safety with ConcurrentQueue
+    ===================================
+    This implementation uses System.Collections.Concurrent.ConcurrentQueue for thread-safe
+    object pooling without explicit locks. Key benefits:
+    
+    1. Lock-Free Operations: TryDequeue/Enqueue use atomic CAS (Compare-And-Swap) operations
+       internally, avoiding the overhead of Monitor.Enter/Exit or lock statements.
+    
+    2. Non-Blocking: Multiple threads can rent/return simultaneously without blocking each other
+       (except during brief CAS retries on contention).
+    
+    3. FIFO Ordering: Objects are reused in the order they were returned, improving cache locality
+       and predictable behavior under load.
+    
+    4. Safe Count Reading: The .Count property is thread-safe for reads (though it may be stale
+       by the time you use it in a multi-threaded scenario).
+    
+    Trade-offs:
+    - Statistics (_rented, _returned, _created) use simple ++ which is NOT atomic. For accurate
+      multi-threaded stats, use [System.Threading.Interlocked]::Increment() instead.
+    - No fairness guarantees: under heavy contention, some threads may be starved.
+    
+    Alternative: For bounded pools with blocking behavior, consider using BlockingCollection
+    with a maximum capacity, which will block Rent() callers when the pool is exhausted.
+#>
+
 # Usage pattern — always use try/finally to guarantee return:
 # $pool = [RsaPool]::new(2048, 5)
 # $rsa  = $pool.Rent()
