@@ -85,3 +85,34 @@ class GzipAesWorkflow : CryptoWorkflow {
         return $mac + $data
     }
 }
+
+class ZstdAesWorkflow : CryptoWorkflow {
+    hidden [byte[]]$_key
+
+    ZstdAesWorkflow() : base() {
+        $this._key = [byte[]]::new(32)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($this._key)
+    }
+
+    hidden [byte[]] Compress([byte[]]$data) {
+        $ms = [System.IO.MemoryStream]::new()
+        $zlib = [System.IO.Compression.ZLibStream]::new($ms,
+            [System.IO.Compression.CompressionMode]::Compress)
+        $zlib.Write($data, 0, $data.Length); $zlib.Dispose()
+        return $ms.ToArray()
+    }
+
+    hidden [byte[]] Encrypt([byte[]]$data) {
+        $gcm   = [System.Security.Cryptography.AesGcm]::new($this._key)
+        $nonce = [byte[]]::new(12); $ct = [byte[]]::new($data.Length); $tag = [byte[]]::new(16)
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($nonce)
+        $gcm.Encrypt($nonce, $data, $ct, $tag); $gcm.Dispose()
+        return $nonce + $tag + $ct
+    }
+
+    hidden [byte[]] Sign([byte[]]$data) {
+        $hmac = [System.Security.Cryptography.HMACSHA256]::new($this._key)
+        $mac  = $hmac.ComputeHash($data); $hmac.Dispose()
+        return $mac + $data
+    }
+}

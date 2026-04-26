@@ -374,3 +374,36 @@ Tests directly manipulate `$store._lastAccessed['key']` to backdate timestamps f
 - Audit Log (1 test) - Set operations logged with timestamps
 
 **Total:** 14 test cases, all passing.
+
+---
+
+### 13_TemplateMethod.ps1 — 2026-04-26
+
+**Decision:** Added ZstdAesWorkflow class using System.IO.Compression.ZLibStream for compression; created comprehensive Pester test suite verifying template method sequence invariance.
+
+**Rationale:** Template Method pattern ensures algorithm skeleton (Execute) cannot be reordered by subclasses; base class uses hidden List<string> step log to record execution order (Validate→Compress→Encrypt→Sign→Package→Audit).
+
+**Implementation Details:**
+- ZstdAesWorkflow extends CryptoWorkflow
+- Uses ZLibStream with CompressionMode.Compress (as specified in agent task)
+- Implements same AES-GCM encryption as GzipAesWorkflow (12-byte nonce, 16-byte tag)
+- Implements HMAC-SHA256 signing (32-byte MAC prepended)
+- Each instance generates cryptographically random 32-byte key via RandomNumberGenerator.Fill()
+- Base class Execute() method enforces invariant sequence via _Step() wrapper
+- _Step() logs step name before executing the action scriptblock
+- GetStepLog() returns array copy (not reference) of step log
+
+**Key Discovery - Template Method Sequence Enforcement:**
+Execute() method is not marked as `final` or `sealed` in PowerShell, but subclasses cannot reorder steps because they override the individual step methods (Compress, Encrypt, Sign), not the Execute() template method itself. The sequence is enforced by the base class implementation calling steps in fixed order.
+
+**Key Discovery - Exception Message Matching in Pester:**
+`throw [System.NotImplementedException]'Encrypt'` creates an exception with message "Encrypt", not "System.NotImplementedException: Encrypt". Pester's `Should -Throw '*NotImplementedException*'` fails because the message doesn't contain the type name. Changed to `Should -Throw '*Encrypt*'` to match the actual exception message.
+
+**Test Coverage:**
+- Base class CryptoWorkflow (5 tests) - step sequence enforcement, empty payload validation, Package structure, abstract method enforcement
+- GzipAesWorkflow implementation (6 tests) - complete workflow, step order logging, compression, encryption, signing, unique keys per instance
+- ZstdAesWorkflow implementation (6 tests) - complete workflow, step order logging, ZLib compression, encryption, signing, unique keys per instance, different output from GzipAesWorkflow
+- Template Method invariance (2 tests) - subclass cannot reorder steps, multiple executions maintain order
+- Step log functionality (3 tests) - empty before execution, accumulation across multiple calls, array copy return
+
+**Total:** 23 test cases, all passing.
