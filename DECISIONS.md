@@ -309,3 +309,37 @@ ComposedSecureChannel accepts ICipher2 and ISigner2 interfaces at construction, 
 - Composition validation (1 test) - regex verification that ComposedSecureChannel has no hardcoded cipher instantiation
 
 **Total:** 24 test cases, all passing.
+
+---
+
+### 11_MixinScriptblock.ps1 — 2026-04-26
+
+**Decision:** Implementation and comprehensive Pester test suite were already complete; verified all tests pass successfully.
+
+**Rationale:** Timing mixin demonstrates scriptblock injection for cross-cutting concerns without modifying class definition; Add-EncryptTimingMixin wraps Encrypt() method while preserving OnEncrypt hook behavior.
+
+**Implementation Details:**
+- Add-EncryptTimingMixin injects TimingLog property (List<hashtable>) via Add-Member
+- EncryptTimed scriptmethod wraps original Encrypt() call with Stopwatch timing
+- Records elapsed milliseconds, timestamp, method name, and data size to TimingLog
+- Hook fires before encrypt operation (via OnEncrypt scriptblock in original Encrypt method)
+- Multiple instances have independent logs (no shared state)
+- Original Encrypt() method remains unmodified and functional
+- Works with existing OnEncrypt hooks without interference
+
+**Test Coverage:**
+- MixableService Base Functionality (4 tests) - construction, encryption, OnEncrypt hook firing
+- Add-TimingMixin Function (3 tests) - basic timing wrapper with verbose output
+- Add-EncryptTimingMixin Agent Task Implementation (19 tests):
+  - TimingLog property initialization and structure
+  - EncryptTimed method injection
+  - Hook preservation and firing
+  - Timing entry fields (Timestamp, Method, ElapsedMs, DataSize)
+  - Multiple calls accumulation
+  - Independent instances with separate logs
+  - Idempotent application
+  - Edge cases (empty data, large data, null TimingLog handling)
+- Integration Tests (2 tests) - timing with audit hooks, multiple scriptblock injections
+- Edge Cases and Error Handling (3 tests) - original method unmodified, reasonable timing bounds
+
+**Total:** 31 test cases, all passing.
