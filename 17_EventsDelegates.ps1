@@ -57,3 +57,28 @@ class CryptoEventEmitter {
 
     [string] GetKeyId() { return $this._keyId }
 }
+
+# Agent Task: Event subscriber with logging
+class EventLogger {
+    [System.Collections.Generic.List[string]]$Log
+
+    EventLogger() {
+        $this.Log = [System.Collections.Generic.List[string]]::new()
+    }
+
+    [void] LogKeyRotation([string]$keyId) {
+        $this.Log.Add("KeyRotated: $keyId")
+    }
+
+    [void] LogEncrypt([byte[]]$data) {
+        $this.Log.Add("Encrypted: $($data.Length) bytes")
+    }
+
+    [void] LogDecrypt([byte[]]$data) {
+        $this.Log.Add("Decrypted: $($data.Length) bytes")
+    }
+
+    [void] LogError([string]$error) {
+        $this.Log.Add("Error: $error")
+    }
+}

@@ -507,3 +507,67 @@ When Get-Content returns a single line and is piped through Where-Object, PowerS
 - CryptoServiceWithAudit (5 tests) - works with all three logger types, no null reference exceptions, encrypts data correctly (12-byte nonce + 16-byte tag + ciphertext)
 
 **Total:** 18 test cases, all passing.
+
+---
+
+### 17_EventsDelegates.ps1 — 2026-04-26
+
+**Decision:** Implemented EventLogger class with System.Collections.Generic.List<string> log; created comprehensive Pester test suite using System.Delegate.Combine() for multiple subscribers and GetNewClosure() for scriptblock variable capture.
+
+**Rationale:** System.Action delegates provide event hooks in PowerShell classes; multiple subscribers require System.Delegate.Combine() since PowerShell scriptblocks don't support += operator; GetNewClosure() ensures proper variable capture in test closures.
+
+**Implementation Details:**
+- EventLogger class with List<string> log and four logging methods (LogKeyRotation, LogEncrypt, LogDecrypt, LogError)
+- CryptoEventEmitter already implemented OnKeyRotated event (receives new key ID as string)
+- RotateKey() method generates new key and fires OnKeyRotated event
+- OnError event fires on Encrypt() exception
+- Each emitter instance has cryptographically random 32-byte AES key with 8-character hex key ID
+
+**Key Discovery - PowerShell Action Delegate Combining:**
+PowerShell's System.Action delegates do not support the += operator for adding subscribers. Attempting `$emitter.OnEncrypt += $handler` throws "Method invocation failed because System.Action`1 does not contain a method named 'op_Addition'". Solution: use `System.Delegate.Combine($handler1, $handler2)` to create multicast delegates. This requires casting scriptblocks to the specific Action type first: `[System.Action[string]]{ param($x) ... }`.
+
+**Key Discovery - Test Variable Scoping with Closures:**
+Pester test scriptblocks that modify variables need GetNewClosure() to capture the variable correctly: `{ param($data) $state.Fired = $true }.GetNewClosure()`. Without GetNewClosure(), the scriptblock doesn't capture the $state variable from the outer scope, and modifications aren't visible in assertions.
+
+**Key Discovery - Empty List Display in Pester:**
+A System.Collections.Generic.List<string> with Count=0 outputs nothing when evaluated directly in PowerShell pipeline, which can be confused with null. Tests should check `$logger.Log.GetType().Name` or `.Count` instead of piping to `Should -Not -BeNullOrEmpty`. The List is correctly initialized; it's a display quirk.
+
+**Test Coverage:**
+- Event Infrastructure (2 tests) - no-op handlers initialized, key ID generation
+- OnEncrypt Event (2 tests) - fires when encrypting, multiple subscribers via Combine
+- OnError Event (1 test) - fires on encryption exception
+- OnKeyRotated Event (3 tests) - fires on key rotation, multiple subscribers, unique IDs per rotation
+- EventLogger Initialization (1 test) - empty log on construction
+- Key Rotation Logging (2 tests) - single rotation, multiple rotations accumulate
+- Multiple Subscribers (3 tests) - multiple loggers via Combine, encryption logging, error logging
+- Combined Event Logging (1 test) - single logger handles all event types in execution order
+
+**Total:** 15 test cases, all passing.
+
+---
+
+### 17_EventsDelegates.ps1 — 2026-04-26
+
+**Decision:** Created Pester test suite using System.Delegate.Combine() for multiple event subscribers; wrapped EventLogger instance methods in scriptblock delegates cast to System.Action[T] type.
+
+**Rationale:** PowerShell System.Action delegates don't support the += operator; Combine() requires properly typed delegates, so instance methods must be wrapped in scriptblocks with explicit parameter typing and cast to the matching System.Action type.
+
+**Implementation Details:**
+- EventLogger class already implemented with List<string> log and four logging methods
+- CryptoEventEmitter already has OnKeyRotated, OnEncrypt, OnDecrypt, OnError events
+- Tests create delegates using pattern: `[System.Action[string]]{ param($x) $logger.Method($x) }`
+- Multiple subscribers chained via: `[System.Delegate]::Combine($handler1, $handler2)`
+- OnKeyRotated event fires on RotateKey() with new 8-character hex key ID
+- OnError event fires on Encrypt() exception (null data triggers it)
+
+**Key Discovery - PowerShell Action Delegate Combining:**
+PowerShell's System.Action delegates do not support the += operator. Attempting `$emitter.OnEncrypt += $handler` throws "Method invocation failed because System.Action`1 does not contain a method named 'op_Addition'". Solution: use `[System.Delegate]::Combine($handler1, $handler2)` to create multicast delegates. Instance methods must be wrapped in scriptblocks and cast to the specific Action type: `[System.Action[string]]{ param($keyId) $logger.LogKeyRotation($keyId) }`.
+
+**Test Coverage:**
+- OnKeyRotated Event (4 tests) - fires on rotation, passes key ID, multiple subscribers via Combine, three subscriber chaining
+- OnEncrypt Event (2 tests) - fires when encrypting, multiple subscribers
+- OnError Event (2 tests) - fires on exception, multiple subscribers with error messages
+- Multiple Event Types (2 tests) - independent event firing, mixed subscribers on different events
+- EventLogger Class (3 tests) - empty log initialization, List<string> type verification, log message formatting
+
+**Total:** 13 test cases, all passing.
