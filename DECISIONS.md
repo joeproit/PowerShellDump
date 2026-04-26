@@ -442,3 +442,38 @@ Testing state machines requires comprehensive illegal transition coverage. With 
 - Complex state flows (2 tests) - multiple suspend/resume cycles, revoke while suspended
 
 **Total:** 52 test cases, all passing.
+
+---
+
+### 15_CommandPattern.ps1 — 2026-04-26
+
+**Decision:** Implemented HashFileCommand class that computes SHA-256 hash of a file with read-only operation semantics; created comprehensive Pester test suite verifying command queue execution order and UndoAll() triggering on failure.
+
+**Rationale:** Command pattern encapsulates operations as first-class objects with Execute/Undo lifecycle; hash computation is read-only so Undo() is a no-op; CryptoCommandQueue enforces sequential execution and automatic rollback on failure.
+
+**Implementation Details:**
+- HashFileCommand extends CryptoCommand base class
+- Execute() computes SHA-256 hash using System.Security.Cryptography.SHA256
+- Stores lowercase hex string in $this.Result property (64 characters)
+- Throws FileNotFoundException if file doesn't exist
+- Undo() is empty method (no-op) - hashing is read-only, nothing to revert
+- Describe() returns "HashFile[{filepath}]" for logging
+- Properly disposes FileStream and SHA256 algorithm instances
+- Uses System.BitConverter.ToString() to convert bytes to hex, removes hyphens
+
+**Key Discovery - Command Queue Failure Handling:**
+CryptoCommandQueue.RunAll() implements transactional semantics: on any command failure, it catches the exception, calls UndoAll() to reverse all completed commands in reverse order (LIFO via Stack), then re-throws. This ensures atomic execution - either all commands succeed or all are undone. The history stack grows as commands execute, and UndoAll() pops from the stack ensuring reverse-order undo.
+
+**Key Discovery - Pester Collection Assertions:**
+`$string | Should -HaveCount N` pipes string as a single object (count=1), not characters. Changed to `$string.Length | Should -Be N` to verify string length correctly. This aligns with PowerShell's string handling where strings are single objects, not character collections.
+
+**Test Coverage:**
+- CryptoCommand base class (6 tests) - NotImplementedException enforcement, property initialization
+- NoopCommand (3 tests) - execute/undo cycle, labeling
+- FailingCommand (3 tests) - intentional failure, no-op undo
+- HashFileCommand (7 tests) - SHA-256 computation, file not found handling, no-op undo, describe format, hash consistency, hash uniqueness for different content
+- CryptoCommandQueue basic operations (3 tests) - empty queue, enqueue, execution order
+- CryptoCommandQueue UndoAll on failure (5 tests) - rollback trigger, reverse-order undo, mixed command types, no rollback on success, pending queue state after failure
+- HashFileCommand integration (2 tests) - multiple hash commands, hash command failure in queue
+
+**Total:** 28 test cases, all passing.

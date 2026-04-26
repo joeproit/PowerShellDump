@@ -75,3 +75,40 @@ class CryptoCommandQueue {
     [int] PendingCount()   { return $this._queue.Count }
     [int] CompletedCount() { return $this._history.Count }
 }
+
+# Agent Task: HashFileCommand that computes SHA-256 of a file
+class HashFileCommand : CryptoCommand {
+    [string]$FilePath
+
+    HashFileCommand([string]$filePath) {
+        $this.FilePath = $filePath
+    }
+
+    [void] Execute() {
+        if (-not (Test-Path -Path $this.FilePath -PathType Leaf)) {
+            throw [System.IO.FileNotFoundException]"File not found: $($this.FilePath)"
+        }
+        
+        $hashAlgo = [System.Security.Cryptography.SHA256]::Create()
+        try {
+            $fileStream = [System.IO.File]::OpenRead($this.FilePath)
+            try {
+                $hashBytes = $hashAlgo.ComputeHash($fileStream)
+                $this.Result = [System.BitConverter]::ToString($hashBytes).Replace('-','').ToLowerInvariant()
+                $this.Executed = $true
+            } finally {
+                $fileStream.Dispose()
+            }
+        } finally {
+            $hashAlgo.Dispose()
+        }
+    }
+
+    [void] Undo() {
+        # No meaningful undo for hashing - operation is read-only
+    }
+
+    [string] Describe() {
+        return "HashFile[$($this.FilePath)]"
+    }
+}
