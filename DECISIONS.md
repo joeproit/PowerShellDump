@@ -75,3 +75,32 @@ Pester 5.x on macOS arm64 treats empty List<T> as null when piped to Should oper
 - Integration tests (4 tests) - multiple interfaces, chained transforms
 
 **Total:** 35 test cases, all passing.
+
+---
+
+### 04_AccessModifiers.ps1 — 2026-04-26
+
+**Decision:** Extended AccessDemo class with registry size limit enforcement; fixed New-SecureVault closure to remove `private:` scope modifier; used GetProperty() not GetField() for reflection test of hidden property.
+
+**Rationale:** Registry size limit prevents unbounded growth of static registry; closures need unscoped variable references to capture correctly; PowerShell's `hidden` keyword is not .NET private, it's still a public property accessible via reflection.
+
+**Implementation Details:**
+- Added `_maxRegistrySize` static field (default 100)
+- Constructor enforces size limit, throws if exceeded
+- Added helper methods: GetRegistrySize(), ClearRegistry(), GetMaxRegistrySize(), SetMaxRegistrySize()
+- Fixed New-SecureVault: changed `$private:store` to `$store` in scriptblocks - GetNewClosure() captures the variable correctly without scope modifiers
+- Reflection test uses GetProperty() with default binding flags - hidden properties are PUBLIC in .NET, only hidden from PowerShell IntelliSense
+
+**Key Discovery - Hidden vs Private:**
+The reflection test explicitly demonstrates that PowerShell's `hidden` keyword does NOT create truly private members. From .NET's perspective, hidden properties are still public and fully accessible via reflection. This proves that true privacy in PowerShell requires closure-based patterns like New-SecureVault, not the `hidden` keyword.
+
+**Test Coverage:**
+- Public/hidden property access (3 tests)
+- Reflection accessing hidden property (1 test) - proves hidden != private
+- Static members and registry (3 tests)
+- Registry size limit enforcement (4 tests)
+- ReadonlyId simulation (3 tests)
+- New-SecureVault independent instances (4 tests) - proves vaults don't share state
+- Basic vault operations (3 tests)
+
+**Total:** 21 test cases, all passing.
