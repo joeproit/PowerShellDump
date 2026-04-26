@@ -15,31 +15,45 @@
     Non-Scope:
       - No generic method overloads (PS does not support them)
 #>
-
+ 
 class OverloadDemo {
     # Overload 1: string -> UTF8 encode then hash
     [byte[]] Hash([string]$data) {
         return $this.Hash([System.Text.Encoding]::UTF8.GetBytes($data))
     }
-
+ 
     # Overload 2: byte[] -> hash directly
     [byte[]] Hash([byte[]]$data) {
         $h = [System.Security.Cryptography.SHA256]::Create()
         try { return $h.ComputeHash($data) } finally { $h.Dispose() }
     }
-
+ 
     # Overload 3: stream -> hash stream
     [byte[]] Hash([System.IO.Stream]$stream) {
         $h = [System.Security.Cryptography.SHA256]::Create()
         try { return $h.ComputeHash($stream) } finally { $h.Dispose() }
     }
-
+ 
     # Overload 4: FileInfo -> open and delegate to stream overload
     [byte[]] Hash([System.IO.FileInfo]$file) {
         $stream = $file.OpenRead()
         try { return $this.Hash($stream) } finally { $stream.Dispose() }
     }
-}
+
+    # Agent Task Implementation - method overloads summary
+    # - [string] -> UTF8.GetBytes then [byte[]] path
+    # - [byte[]] -> direct SHA256.ComputeHash
+    # - [System.IO.Stream] -> direct SHA256.ComputeHash
+    # - [System.IO.FileInfo] -> .OpenRead() -> [Stream] path
+    # Gotchas per spec/constraint:
+    # 1) Null ambiguity: Hash($null) is ambiguous (matches string or byte[])
+    #    PS 7.4.6 arm64 constraint: "null resolves to byte[]"; this test documents
+    #    the known discrepancy between environments.
+    # 2) Int coercion: integer inputs are widened to [string] (e.g., 42 -> "42")
+    # 3) Explicit casts change behavior:
+    #    - [string]$null -> hashes empty string (expected)
+    #    - [byte[]]$null -> SHA256 throws on null array (expected)
+    # 4) File streams from FileInfo are disposed after delegating to stream overload.
 
 # Coercion notes (for agent to turn into Pester tests):
 #
