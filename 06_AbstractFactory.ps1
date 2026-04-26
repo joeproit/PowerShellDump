@@ -111,3 +111,107 @@ class SecureChannel {
         return $this._cipher.Open($packet.Sealed)
     }
 }
+
+# ======== Agent Task Implementation ========
+
+# Legacy (weak) cipher: AES-128-CBC
+class LegacyAesCipher : ICipher {
+    hidden [byte[]]$_k
+    LegacyAesCipher() {
+        $this._k = [byte[]]::new(16)  # AES-128
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($this._k)
+    }
+    [byte[]] Seal([byte[]]$pt) {
+        $aes = [System.Security.Cryptography.Aes]::Create()
+        try {
+            $aes.KeySize = 128
+            $aes.Key = $this._k
+            $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+            $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+            $aes.GenerateIV()
+            $iv = $aes.IV
+            $encryptor = $aes.CreateEncryptor()
+            $ct = $encryptor.TransformFinalBlock($pt, 0, $pt.Length)
+            $encryptor.Dispose()
+            return $iv + $ct
+        } finally {
+            $aes.Dispose()
+        }
+    }
+    [byte[]] Open([byte[]]$ct) {
+        $iv = $ct[0..15]
+        $body = $ct[16..($ct.Length-1)]
+        $aes = [System.Security.Cryptography.Aes]::Create()
+        try {
+            $aes.KeySize = 128
+            $aes.Key = $this._k
+            $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+            $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+            $aes.IV = $iv
+            $decryptor = $aes.CreateDecryptor()
+            $pt = $decryptor.TransformFinalBlock($body, 0, $body.Length)
+            $decryptor.Dispose()
+            return $pt
+        } finally {
+            $aes.Dispose()
+        }
+    }
+}
+
+# Legacy (weak) signer: HMAC-SHA1
+class LegacyHmacSigner : ISigner {
+    hidden [byte[]]$_k
+    LegacyHmacSigner() {
+        $this._k = [byte[]]::new(20)  # 160-bit key
+        [System.Security.Cryptography.RandomNumberGenerator]::Fill($this._k)
+    }
+    [byte[]] Sign([byte[]]$data) {
+        $hmac = [System.Security.Cryptography.HMACSHA1]::new($this._k)
+        try { return $hmac.ComputeHash($data) } finally { $hmac.Dispose() }
+    }
+    [bool] Verify([byte[]]$data, [byte[]]$sig) {
+        $hmac = [System.Security.Cryptography.HMACSHA1]::new($this._k)
+        try {
+            $computed = $hmac.ComputeHash($data)
+            if ($computed.Length -ne $sig.Length) { return $false }
+            $result = 0
+            for ($i = 0; $i -lt $computed.Length; $i++) {
+                $result = $result -bor ($computed[$i] -bxor $sig[$i])
+            }
+            return $result -eq 0
+        } finally {
+            $hmac.Dispose()
+        }
+    }
+}
+
+# Legacy (weak) hasher: MD5
+class Md5Hasher : IHasher {
+    [byte[]] Hash([byte[]]$data) {
+        $h = [System.Security.Cryptography.MD5]::Create()
+        try { return $h.ComputeHash($data) } finally { $h.Dispose() }
+    }
+}
+
+# Legacy factory (deliberately weak - for backwards compatibility only)
+class LegacyCryptoSuiteFactory : ICryptoSuiteFactory {
+    [ICipher]  CreateCipher() { return [LegacyAesCipher]::new() }
+    [ISigner]  CreateSigner() { return [LegacyHmacSigner]::new() }
+    [IHasher]  CreateHasher() { return [Md5Hasher]::new() }
+}
+
+# Factory selector function
+function Get-CryptoSuiteFactory {
+    [CmdletBinding()]
+    [OutputType([ICryptoSuiteFactory])]
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet('fips', 'legacy')]
+        [string]$Suite
+    )
+    
+    switch ($Suite) {
+        'fips'   { return [FipsCryptoSuiteFactory]::new() }
+        'legacy' { return [LegacyCryptoSuiteFactory]::new() }
+    }
+}

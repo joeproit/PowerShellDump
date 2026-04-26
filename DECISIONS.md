@@ -143,3 +143,32 @@ PowerShell's parser treats switch statements with throw cases as potentially not
 - CryptoAlgorithm base class behavior (2 tests)
 
 **Total:** 24 test cases, all passing.
+
+---
+
+### 06_AbstractFactory.ps1 — 2026-04-26
+
+**Decision:** Implemented LegacyCryptoSuiteFactory with AES-128-CBC + HMAC-SHA1 + MD5; added Get-CryptoSuiteFactory selector function; fixed Pester type assertions to use GetType().Name instead of -BeOfType.
+
+**Rationale:** Abstract Factory pattern demonstrates family of related crypto objects that can be swapped without modifying client code (SecureChannel); Pester 5.x -BeOfType doesn't recognize PowerShell class types correctly.
+
+**Implementation Details:**
+- LegacyAesCipher: AES-128-CBC with PKCS7 padding, prepends 16-byte IV to ciphertext
+- LegacyHmacSigner: HMAC-SHA1 with 160-bit key, constant-time comparison in Verify()
+- Md5Hasher: MD5 hash (16 bytes)
+- LegacyCryptoSuiteFactory: Creates family of legacy crypto objects
+- Get-CryptoSuiteFactory: Selector function with ValidateSet('fips', 'legacy')
+- All legacy classes properly labeled as weak/legacy in comments
+
+**Key Discovery - Pester Type Assertions:**
+Pester's -BeOfType operator fails with PowerShell classes defined in the same file, throwing "Could not find type" errors even though the classes exist and work correctly. Switched to comparing `$obj.GetType().Name` as a string, which works reliably.
+
+**Test Coverage:**
+- FIPS Suite creation and operations (7 tests)
+- Legacy Suite creation and operations (7 tests)
+- Factory Selector function (3 tests) - validates correct factory type returned
+- SecureChannel with FIPS (3 tests) - end-to-end message send/receive
+- SecureChannel with Legacy (3 tests) - end-to-end message send/receive
+- Cross-Suite Independence (2 tests) - proves SecureChannel works with both factories without modification; packets from different suites are incompatible
+
+**Total:** 25 test cases, all passing.
