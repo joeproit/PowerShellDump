@@ -172,3 +172,37 @@ Pester's -BeOfType operator fails with PowerShell classes defined in the same fi
 - Cross-Suite Independence (2 tests) - proves SecureChannel works with both factories without modification; packets from different suites are incompatible
 
 **Total:** 25 test cases, all passing.
+
+---
+
+### 07_BuilderPattern.ps1 — 2026-04-26
+
+**Decision:** WithEcdhKeyExchange() and ECDH validation were already implemented; created comprehensive Pester test suite with explicit variable assignments instead of fluent chaining syntax.
+
+**Rationale:** PowerShell's parser has difficulty with multi-line fluent chains in Pester test files; using explicit intermediate variables ($builder = $builder.Method()) ensures reliable parsing and test execution.
+
+**Implementation Details:**
+- WithEcdhKeyExchange() sets Algorithm='ECDH-P256' and KeyBits=256 (lines 70-74)
+- Build() validates ECDH-P256 requires exactly 256-bit keys (lines 82-84)
+- Build() validates KeyBits must be 128, 192, or 256 (lines 86-88)
+- Build() validates KdfIterations must be >= 10000 (lines 77-79)
+- WithStaticKey() validates key length must be 16, 24, or 32 bytes (lines 63-65)
+
+**Key Discovery - Fluent Chain Syntax in Tests:**
+PowerShell cannot parse multi-line fluent chains like `[Builder]::new().Method1().Method2()` across line breaks in Pester test files. The parser treats the newline as statement terminator and fails with "An expression was expected after '('". Solution: use explicit variable reassignment pattern `$builder = $builder.Method()` for each step, which is more verbose but parses correctly.
+
+**Test Coverage:**
+- CryptoConfig instantiation and ToString() (2 tests)
+- UseAesGcm with various key sizes (3 tests)
+- WithAudit fluent chaining (2 tests)
+- WithRateLimit fluent chaining (2 tests)
+- WithPbkdf2 fluent chaining (2 tests)
+- WithStaticKey validation (6 tests) - 16/24/32 byte keys accepted, 8/64 byte keys rejected
+- WithEcdhKeyExchange method (4 tests) - sets algorithm, integrates with other methods
+- ECDH-P256 validation in Build() (4 tests) - 256-bit required, 128/192/512 rejected
+- KDF iterations validation (5 tests) - minimum 10000 enforced
+- Key size validation (5 tests) - 128/192/256 accepted, 64/512 rejected
+- Complex fluent chains (7 tests) - multiple methods, order independence, method override behavior
+- Edge cases (4 tests) - default builds, independent builders, multiple Build() calls
+
+**Total:** 46 test cases, all passing.
