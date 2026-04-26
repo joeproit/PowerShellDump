@@ -55,7 +55,7 @@ class ManagedCryptoService : System.IDisposable {
 # ---------------------------------------------------------------------------
 # 2. IComparable — sortable CryptoKey by expiry date
 # ---------------------------------------------------------------------------
-class CryptoKey : System.IComparable {
+class CryptoKey : System.IComparable, System.ICloneable {
     [string]$Id
     [datetime]$Created
     [datetime]$Expires
@@ -69,6 +69,13 @@ class CryptoKey : System.IComparable {
     [int] CompareTo([object]$other) {
         if ($other -isnot [CryptoKey]) { return 1 }
         return $this.Expires.CompareTo(([CryptoKey]$other).Expires)
+    }
+
+    [object] Clone() {
+        $clone = [CryptoKey]::new($this.Id, 0)
+        $clone.Created = $this.Created
+        $clone.Expires = $this.Expires
+        return $clone
     }
 }
 
@@ -88,7 +95,12 @@ class ICryptoTransform {
         $methods = @('Transform', 'InverseTransform', 'GetAlgorithmId')
         foreach ($m in $methods) {
             try {
-                $impl.$m([byte[]]::new(1))
+                # GetAlgorithmId takes no parameters, others take byte[]
+                if ($m -eq 'GetAlgorithmId') {
+                    $impl.$m()
+                } else {
+                    $impl.$m([byte[]]::new(1))
+                }
             }
             catch [System.NotImplementedException] {
                 throw [System.InvalidOperationException]"$($impl.GetType().Name) must implement $m"
@@ -117,5 +129,47 @@ class XorTransform : ICryptoTransform {
     [string] GetAlgorithmId() { return "XOR-1" }
 }
 
-# Agent task: add Base64Transform here
-# class Base64Transform : ICryptoTransform { ... }
+# ---------------------------------------------------------------------------
+# 5. Agent Task: Base64Transform — ICryptoTransform implementation
+# ---------------------------------------------------------------------------
+class Base64Transform : ICryptoTransform {
+    
+    Base64Transform() { }
+
+    [byte[]] Transform([byte[]]$input) {
+        # Transform: bytes -> base64 string -> UTF8 bytes
+        $base64String = [System.Convert]::ToBase64String($input)
+        return [System.Text.Encoding]::UTF8.GetBytes($base64String)
+    }
+
+    [byte[]] InverseTransform([byte[]]$input) {
+        # InverseTransform: UTF8 bytes -> base64 string -> original bytes
+        $base64String = [System.Text.Encoding]::UTF8.GetString($input)
+        return [System.Convert]::FromBase64String($base64String)
+    }
+
+    [string] GetAlgorithmId() { 
+        return "BASE64-1" 
+    }
+}
+
+# ---------------------------------------------------------------------------
+# 6. Test stubs for contract validation (used by Pester tests)
+# ---------------------------------------------------------------------------
+class IncompleteTransform : ICryptoTransform { }
+
+class NoTransform : ICryptoTransform {
+    [byte[]] InverseTransform([byte[]]$input) { return $input }
+    [string] GetAlgorithmId() { return "NONE" }
+}
+
+class NoInverse : ICryptoTransform {
+    [byte[]] Transform([byte[]]$input) { return $input }
+    [string] GetAlgorithmId() { return "NONE" }
+}
+
+class NoAlgorithmId : ICryptoTransform {
+    [byte[]] Transform([byte[]]$input) { return $input }
+    [byte[]] InverseTransform([byte[]]$input) { return $input }
+    # GetAlgorithmId() not implemented - inherits NotImplementedException from base
+}

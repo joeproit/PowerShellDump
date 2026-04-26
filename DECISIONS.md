@@ -47,3 +47,31 @@ Pester 5.x on macOS arm64 treats empty List<T> as null when piped to Should oper
 - Type hierarchy validation across all levels (2 tests)
 
 **Total:** 37 test cases, all passing.
+
+---
+
+### 03_InterfacePatterns.ps1 — 2026-04-26
+
+**Decision:** Fixed ICryptoTransform.Validate() to call GetAlgorithmId() without parameters; implementation and tests were already complete.
+
+**Rationale:** GetAlgorithmId() takes no parameters but Validate() was calling all methods with `[byte[]]::new(1)`, causing parameter mismatch to be caught by generic catch block instead of detecting NotImplementedException.
+
+**Implementation Details:**
+- Base64Transform already implemented (lines 130-149)
+- All interface implementations complete:
+  - IDisposable: ManagedCryptoService with two-phase dispose
+  - IComparable: CryptoKey sorts by expiry date
+  - ICloneable: CryptoKey.Clone() creates independent copy
+  - ICryptoTransform: XorTransform and Base64Transform
+- Added conditional logic in Validate() to call GetAlgorithmId() without parameters
+
+**Test Coverage:**
+- IDisposable pattern (5 tests) - double dispose safe
+- IComparable sorting (4 tests) - CryptoKey list sorts correctly
+- ICloneable implementation (5 tests) - independent clones
+- ICryptoTransform validation (5 tests) - contract enforcement throws on incomplete stubs
+- XorTransform implementation (4 tests)
+- Base64Transform implementation (8 tests)
+- Integration tests (4 tests) - multiple interfaces, chained transforms
+
+**Total:** 35 test cases, all passing.
