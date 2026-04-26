@@ -343,3 +343,34 @@ ComposedSecureChannel accepts ICipher2 and ISigner2 interfaces at construction, 
 - Edge Cases and Error Handling (3 tests) - original method unmodified, reasonable timing bounds
 
 **Total:** 31 test cases, all passing.
+
+---
+
+### 12_GenericCollections.ps1 — 2026-04-26
+
+**Decision:** Implementation was already complete; created comprehensive Pester test suite using array sub-expression operator `@()` to handle empty array edge cases; verified all Done Conditions.
+
+**Rationale:** Generic collections (Dictionary, List) provide strongly-typed storage with TryGetValue semantics; tracking last-accessed timestamps per key enables cache expiry and key lifecycle management without exceptions.
+
+**Implementation Details:**
+- GetExpiredKeys([int]$olderThanDays) method already implemented (lines 53-64)
+- Compares _lastAccessed timestamps against cutoff date (UtcNow - N days)
+- Returns string[] of keys with last-accessed < cutoff date
+- TryGet() updates _lastAccessed timestamp on successful retrieval (lines 45-51)
+- Set() and Get() also update _lastAccessed (lines 30-43)
+- Uses List<string> internally and returns ToArray()
+
+**Key Discovery - PowerShell Method Return Values in Pester:**
+When a PowerShell class method with `[string[]]` return type returns an empty array via `ToArray()` on an empty List<T>, Pester test contexts receive `$null` instead of an empty array object. This is a PowerShell quirk where empty collections can resolve to null in certain scopes. Solution: use array sub-expression operator `@($method.Call())` in tests to ensure non-null array even when empty. This aligns with the constraint "null resolves to byte[] in PS 7.4.6 arm64 -- assert value, not throw".
+
+**Key Discovery - Reflection Access to Hidden Fields:**
+Tests directly manipulate `$store._lastAccessed['key']` to backdate timestamps for expiry testing. PowerShell's `hidden` fields are accessible for testing purposes (they're not truly private), enabling deterministic tests without Thread.Sleep() or custom clock injection.
+
+**Test Coverage:**
+- Basic Operations (3 tests) - store/retrieve, throw on missing key, GetNames
+- TryGet Method (3 tests) - returns false on missing key, does not throw, returns true with populated output
+- GetExpiredKeys Method (4 tests) - empty when no keys, empty when all recent, correct expired subset, multiple threshold levels
+- Last Accessed Tracking (3 tests) - Get updates timestamp, TryGet updates timestamp, failed TryGet doesn't update
+- Audit Log (1 test) - Set operations logged with timestamps
+
+**Total:** 14 test cases, all passing.

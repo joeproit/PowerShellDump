@@ -43,7 +43,24 @@ class TypedKeyStore {
     }
 
     [bool] TryGet([string]$name, [ref]$outKey) {
-        return $this._keys.TryGetValue($name, $outKey)
+        $result = $this._keys.TryGetValue($name, $outKey)
+        if ($result) {
+            $this._lastAccessed[$name] = [datetime]::UtcNow
+        }
+        return $result
+    }
+
+    [string[]] GetExpiredKeys([int]$olderThanDays) {
+        $cutoffDate = [datetime]::UtcNow.AddDays(-$olderThanDays)
+        $expired = [System.Collections.Generic.List[string]]::new()
+        
+        foreach ($kvp in $this._lastAccessed.GetEnumerator()) {
+            if ($kvp.Value -lt $cutoffDate) {
+                $expired.Add($kvp.Key)
+            }
+        }
+        
+        return $expired.ToArray()
     }
 
     [string[]] GetNames() { return @($this._keys.Keys) }
