@@ -37,7 +37,7 @@ class CryptoBase {
     }
 
     [string] Describe() {
-        return "$($this.GetType().Name) | $($this.Algorithm) | $($this.KeyBits)-bit | created $($this.CreatedAt:u)"
+        return "$($this.GetType().Name) | $($this.Algorithm) | $($this.KeyBits)-bit | created $($this.CreatedAt.ToString('u'))"
     }
 }
 
@@ -84,6 +84,27 @@ class AuditedAesService : AesService {
     [byte[]] Encrypt([byte[]]$data) {
         $this.AuditLog.Add("ENCRYPT | $(Get-Date -Format u) | $($data.Length) bytes")
         return ([AesService]$this).Encrypt($data)
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Level 3: GrandchildCrypto — third level demonstrating deep inheritance chain
+# ---------------------------------------------------------------------------
+class GrandchildCrypto : AuditedAesService {
+    [string]$Purpose
+
+    GrandchildCrypto() : base() {
+        $this.Purpose = "Deep inheritance demonstration"
+    }
+
+    GrandchildCrypto([string]$purpose) : base() {
+        $this.Purpose = $purpose
+    }
+
+    # Override Describe() with safe downcast to AesService
+    [string] Describe() {
+        $baseDesc = ([AesService]$this).Describe()
+        return "$baseDesc | Purpose: $($this.Purpose)"
     }
 }
 
