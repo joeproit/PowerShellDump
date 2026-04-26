@@ -477,3 +477,33 @@ CryptoCommandQueue.RunAll() implements transactional semantics: on any command f
 - HashFileCommand integration (2 tests) - multiple hash commands, hash command failure in queue
 
 **Total:** 28 test cases, all passing.
+
+---
+
+### 16_NullObject.ps1 — 2026-04-26
+
+**Decision:** Implemented BufferingAuditLogger class that accumulates log entries in memory via System.Collections.Generic.List<string> and provides Flush([string]$path) to write all entries to a file; fixed Pester test to use unique filenames per test via Get-Random to avoid TestDrive file pollution between tests.
+
+**Rationale:** Null Object pattern eliminates null checks by providing a valid do-nothing implementation; buffering logger extends the pattern to accumulate audit logs for batch writes, reducing file I/O overhead while maintaining the same IAuditLogger interface.
+
+**Implementation Details:**
+- BufferingAuditLogger extends IAuditLogger with same method signatures as NullAuditLogger and FileAuditLogger
+- Uses System.Collections.Generic.List<string> for in-memory log accumulation
+- LogEncrypt/LogDecrypt/LogFailure append formatted strings to buffer
+- Flush([string]$path) writes all buffered entries via Add-Content, then clears buffer
+- CryptoServiceWithAudit works with all three logger types without modification
+- Log format matches FileAuditLogger: "OPERATION|timestamp|details"
+
+**Key Discovery - Pester TestDrive File Reuse:**
+TestDrive creates a new temporary directory per Describe block, but files within TestDrive persist across tests in the same Describe block. Using the same filename "buffered.log" across multiple tests caused file pollution - the first test wrote 3 lines, the second test added 1 line for total of 4, causing assertion failures. Solution: generate unique filename per test using `Join-Path $TestDrive "buffered-$(Get-Random).log"` in BeforeEach block to ensure test isolation.
+
+**Key Discovery - PowerShell Single-Element Array Indexing:**
+When Get-Content returns a single line and is piped through Where-Object, PowerShell returns a string instead of a string array. Indexing `[0]` on a string returns the first character ("D" instead of "DECRYPT"). Solution: wrap result in array sub-expression operator `@()` to ensure array behavior even with single element: `$content = @(Get-Content $file | Where-Object { $_ -ne '' })`.
+
+**Test Coverage:**
+- NullAuditLogger (6 tests) - never throws on any method call, handles null/empty inputs
+- FileAuditLogger (3 tests) - logs encrypt/decrypt/failure operations to file immediately
+- BufferingAuditLogger (4 tests) - accumulates entries in memory, writes all on Flush, clears buffer after Flush, handles empty buffer flush
+- CryptoServiceWithAudit (5 tests) - works with all three logger types, no null reference exceptions, encrypts data correctly (12-byte nonce + 16-byte tag + ciphertext)
+
+**Total:** 18 test cases, all passing.

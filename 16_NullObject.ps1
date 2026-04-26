@@ -35,6 +35,33 @@ class FileAuditLogger : IAuditLogger {
     [void] LogFailure([string]$op, [string]$err) { Add-Content $this._path "FAIL|$(Get-Date -Format u)|$op|$err" }
 }
 
+class BufferingAuditLogger : IAuditLogger {
+    hidden [System.Collections.Generic.List[string]]$_buffer
+    
+    BufferingAuditLogger() {
+        $this._buffer = [System.Collections.Generic.List[string]]::new()
+    }
+    
+    [void] LogEncrypt([byte[]]$data) {
+        $this._buffer.Add("ENCRYPT|$(Get-Date -Format u)|$($data.Length)b")
+    }
+    
+    [void] LogDecrypt([int]$bytes) {
+        $this._buffer.Add("DECRYPT|$(Get-Date -Format u)|${bytes}b")
+    }
+    
+    [void] LogFailure([string]$op, [string]$err) {
+        $this._buffer.Add("FAIL|$(Get-Date -Format u)|$op|$err")
+    }
+    
+    [void] Flush([string]$path) {
+        foreach ($entry in $this._buffer) {
+            Add-Content -Path $path -Value $entry
+        }
+        $this._buffer.Clear()
+    }
+}
+
 class CryptoServiceWithAudit {
     hidden [IAuditLogger]$_logger
     hidden [byte[]]$_key
