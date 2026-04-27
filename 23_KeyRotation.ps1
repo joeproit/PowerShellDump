@@ -61,7 +61,13 @@ class RotatingKeyManager {
         if (-not $this._keys.TryGetValue($keyId, [ref]$key)) {
             throw [System.Security.Cryptography.CryptographicException]"Key '$keyId' not available (expired or purged)"
         }
-        $nonce = $ciphertext[0..11]; $tag = $ciphertext[12..27]; $body = $ciphertext[28..($ciphertext.Length-1)]
+        $nonce = $ciphertext[0..11]; $tag = $ciphertext[12..27]
+        # null resolves to byte[] in PS 7.4.6 arm64 -- assert value
+        if ($ciphertext.Length -gt 28) {
+            $body = $ciphertext[28..($ciphertext.Length-1)]
+        } else {
+            $body = [byte[]]::new(0)
+        }
         $pt    = [byte[]]::new($body.Length)
         $gcm   = [System.Security.Cryptography.AesGcm]::new($key)
         $gcm.Decrypt($nonce, $body, $tag, $pt); $gcm.Dispose()
@@ -71,4 +77,12 @@ class RotatingKeyManager {
     [void] Rotate() { $this._GenerateAndActivate() }
 
     [string[]] GetRetainedKeyIds() { return $this._keyOrder.ToArray() }
+
+    # Agent Task: ReEncrypt method
+    [hashtable] ReEncrypt([string]$oldKeyId, [byte[]]$ciphertext) {
+        # Decrypt with old key
+        $plaintext = $this.Decrypt($oldKeyId, $ciphertext)
+        # Encrypt with current key
+        return $this.Encrypt($plaintext)
+    }
 }

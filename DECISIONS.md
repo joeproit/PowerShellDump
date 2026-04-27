@@ -769,3 +769,35 @@ BuildChain() returns the LEAF node (last element in subjects array), not the roo
 **Total:** 17 test cases, all passing.
 
 ---
+
+---
+
+### 23_KeyRotation.ps1 — 2026-04-26
+
+**Decision:** Implemented ReEncrypt([string]$oldKeyId, [byte[]]$ciphertext) method that decrypts with old key and re-encrypts with current key; fixed empty plaintext handling in Decrypt() method to avoid null resolution; created comprehensive Pester test suite verifying pruned keys throw CryptographicException.
+
+**Rationale:** ReEncrypt enables secure key migration without exposing plaintext outside the class; empty plaintext edge case exposed PowerShell array slicing quirk where conditional ternary operator creates arrays containing null; sequential if-else assignment prevents null resolution issue.
+
+**Implementation Details:**
+- ReEncrypt() calls Decrypt($oldKeyId, $ciphertext) then Encrypt(plaintext)
+- Returns hashtable with new KeyId and Ciphertext encrypted under current key
+- Throws CryptographicException if old key no longer in retention window
+- Fixed Decrypt() method to handle empty ciphertext body (28 bytes = 12 nonce + 16 tag + 0 data)
+- Changed from ternary `$body = if (...) { slice } else { [byte[]]::new(0) }` pattern to sequential if-else
+- Prevents PowerShell null resolution where conditional creates Object[] containing null element
+
+**Key Discovery - PowerShell Conditional Array Resolution:**
+PowerShell's ternary-style conditional `$var = if (test) { valueA } else { valueB }` can create an Object[] array containing both branches when one branch returns null. The slice operation `$arr[28..27]` (invalid range) returns null, and the conditional becomes an array [null, byte[]], which PowerShell resolves to null in some contexts. Sequential if-else assignment (`if (...) { $var = valueA } else { $var = valueB }`) avoids this by ensuring only one assignment path executes.
+
+**Key Discovery - Empty AES-GCM Ciphertext:**
+AES-GCM with empty plaintext produces 28-byte ciphertext (12-byte nonce + 16-byte tag + 0-byte body). Slicing `$ciphertext[28..($ciphertext.Length-1)]` when Length=28 becomes `$ciphertext[28..27]` which PowerShell treats as invalid range returning null. Changed to explicit if-else to create `[byte[]]::new(0)` for empty body case, satisfying the constraint "null resolves to byte[] in PS 7.4.6 arm64 -- assert value, not throw".
+
+**Test Coverage:**
+- Basic functionality (3 tests) - manager creation with default/custom retention, encrypt/decrypt cycle
+- Key rotation (3 tests) - rotation preserves old keys, encryption uses current key, decryption works with retained keys
+- Key pruning beyond retainCount (3 tests) - oldest keys pruned when exceeding limit, pruned keys throw CryptographicException with correct message
+- ReEncrypt method (3 tests) - decrypts with old key and re-encrypts with current, throws on pruned key, produces different ciphertext but same plaintext
+- Edge cases (3 tests) - empty plaintext (0 bytes), large plaintext (1MB), unique key ID generation
+
+**Total:** 15 test cases, all passing.
+
