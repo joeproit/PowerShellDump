@@ -709,3 +709,31 @@ GetKeySize() uses Dictionary.TryGetValue() with [ref] parameter to safely check 
 **Total:** 15 test cases, all passing.
 
 ---
+
+### 21_OperatorOverloading.ps1 — 2026-04-26
+
+**Decision:** Implemented static Merge([CryptoKeyPair[]]$keys) method returning strongest non-expired key; created comprehensive Pester test suite verifying IEquatable, IComparable, GetHashCode, and Merge behavior.
+
+**Rationale:** PowerShell lacks custom operator overloading; IComparable/IEquatable interfaces enable -eq comparisons, Sort-Object operations, and hashtable keying; static Merge method demonstrates business logic combining interface behavior.
+
+**Implementation Details:**
+- Merge() filters expired keys via IsExpired() method
+- Returns null for empty/null arrays or when all keys expired
+- Iterates valid keys to find maximum Strength
+- Uses existing CompareTo() for Sort-Object integration
+- Uses existing Equals() and GetHashCode() for hashtable deduplication by KeyId
+
+**Key Discovery - PowerShell Operator Overloading:**
+PowerShell does not support custom operator overloading syntax (`operator+`, `operator==`) like C#. Instead, implementing .NET standard interfaces (IEquatable<T>, IComparable) enables PowerShell's built-in operators (-eq, -lt, -gt) and cmdlets (Sort-Object) to work correctly. The GetHashCode() implementation allows PowerShell hashtables to deduplicate keys correctly - objects with equal KeyId hash to same bucket and are considered equal via Equals().
+
+**Test Coverage:**
+- IEquatable Implementation (4 tests) - KeyId matching via -eq operator, null/type-mismatch handling
+- IComparable Implementation (3 tests) - Sort-Object by expiry date, null comparison, direct CompareTo
+- GetHashCode for Hashtable Keying (3 tests) - deduplication by KeyId, consistent hash codes, separate keys
+- Static Helper Methods (3 tests) - IsStrongerThan, SelectStronger with equal strengths
+- IsExpired Method (2 tests) - non-expired and expired key detection
+- Static Merge Method (7 tests) - strongest selection, expired filtering, null/empty handling, single key, tie-breaking
+
+**Total:** 22 test cases, all passing.
+
+---

@@ -34,6 +34,38 @@ Update-TypeData -TypeName 'System.Byte[]' -MemberType ScriptProperty -MemberName
     $this.Length -in @(16, 24, 32)
 } -Force
 
+Update-TypeData -TypeName 'System.Byte[]' -MemberType ScriptMethod -MemberName 'ToBase58' -Value {
+    # Bitcoin-style base58 alphabet (no 0, O, I, l)
+    $alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    
+    if ($this.Length -eq 0) { return '' }
+    
+    # Count leading zeros
+    $leadingZeros = 0
+    for ($i = 0; $i -lt $this.Length -and $this[$i] -eq 0; $i++) { $leadingZeros++ }
+    
+    # Convert bytes to big integer (need to reverse for little-endian, make copy first)
+    $copy = [byte[]]::new($this.Length)
+    [Array]::Copy($this, $copy, $this.Length)
+    [Array]::Reverse($copy)
+    
+    # Add 0x00 byte to ensure positive number
+    $bytes = $copy + [byte]0x00
+    $num = [System.Numerics.BigInteger]::new($bytes)
+    
+    $encoded = ''
+    while ($num -gt 0) {
+        $remainder = [int]($num % 58)
+        $num = $num / 58
+        $encoded = $alphabet[$remainder] + $encoded
+    }
+    
+    # Add '1' for each leading zero byte
+    $encoded = ('1' * $leadingZeros) + $encoded
+    
+    return $encoded
+} -Force
+
 Update-TypeData -TypeName 'System.String' -MemberType ScriptMethod -MemberName 'ToUTF8Bytes' -Value {
     [System.Text.Encoding]::UTF8.GetBytes($this)
 } -Force
@@ -50,6 +82,7 @@ Update-TypeData -TypeName 'System.String' -MemberType ScriptMethod -MemberName '
 # [System.Security.Cryptography.RandomNumberGenerator]::Fill($key)
 # $key.ToHex()
 # $key.ToBase64()
+# $key.ToBase58()
 # $key.SHA256Hash().ToHex()
 # $key.IsKeySize       # -> $true
 # "hello world".SHA256Hex()

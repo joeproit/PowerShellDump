@@ -49,4 +49,19 @@ class CryptoKeyPair : System.IComparable, System.IEquatable[object] {
     }
 
     [bool] IsExpired() { return [datetime]::UtcNow -gt $this.Expires }
+
+    static [CryptoKeyPair] Merge([CryptoKeyPair[]]$keys) {
+        if ($null -eq $keys -or $keys.Count -eq 0) { return $null }
+        
+        $validKeys = $keys | Where-Object { -not $_.IsExpired() }
+        if ($null -eq $validKeys -or @($validKeys).Count -eq 0) { return $null }
+        
+        $strongest = $validKeys[0]
+        foreach ($key in $validKeys) {
+            if ($key.Strength -gt $strongest.Strength) {
+                $strongest = $key
+            }
+        }
+        return $strongest
+    }
 }
