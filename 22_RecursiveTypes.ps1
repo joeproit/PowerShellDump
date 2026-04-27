@@ -45,6 +45,27 @@ class CertificateChainNode {
         if ($null -eq $this.Parent) { return 0 }
         return 1 + $this.Parent.Depth()
     }
+
+    static [CertificateChainNode] BuildChain([string[]]$subjects) {
+        if ($null -eq $subjects -or $subjects.Count -eq 0) {
+            throw [System.ArgumentException]::new("subjects array cannot be null or empty")
+        }
+
+        # Index 0 is the root (top of chain)
+        # Build from root down to leaf
+        $root = [CertificateChainNode]::new($subjects[0], "Self-Signed")
+        $current = $root
+
+        for ($i = 1; $i -lt $subjects.Count; $i++) {
+            # For intermediate/leaf nodes, issuer is the parent subject
+            $child = [CertificateChainNode]::new($subjects[$i], $subjects[$i - 1])
+            $current.AddChild($child)
+            $current = $child
+        }
+
+        # Return the leaf node (bottom of chain)
+        return $current
+    }
 }
 
 # Self-referential linked list for key history

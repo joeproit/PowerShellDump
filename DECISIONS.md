@@ -737,3 +737,35 @@ PowerShell does not support custom operator overloading syntax (`operator+`, `op
 **Total:** 22 test cases, all passing.
 
 ---
+
+### 22_RecursiveTypes.ps1 — 2026-04-26
+
+**Decision:** Implemented static BuildChain([string[]]$subjects) factory method that constructs certificate chain from array with index 0 as root; created comprehensive Pester test suite verifying Depth() and GetChainSubjects() for chains built via factory method.
+
+**Rationale:** Self-referential types (classes that reference themselves) enable tree and linked-list structures; factory method provides convenient chain construction from string array while maintaining parent-child relationships through recursive node references.
+
+**Implementation Details:**
+- BuildChain() accepts string[] with index 0 = root (top of chain)
+- Constructs chain from root down to leaf by iterating subjects
+- Root node: Issuer = "Self-Signed"
+- Child nodes: Issuer = parent subject (subjects[$i-1])
+- Returns leaf node (bottom of chain) for immediate leaf-to-root traversal
+- Uses existing AddChild() method to maintain Parent reference bidirectionality
+- Throws ArgumentException for null or empty subjects array
+
+**Key Discovery - Factory Method Return Value:**
+BuildChain() returns the LEAF node (last element in subjects array), not the root. This design choice enables immediate leaf-to-root traversal via GetChainSubjects() and Depth() methods, which are the primary use cases for certificate chain validation. Returning the leaf aligns with the spec requirement that GetChainSubjects() returns subjects in "leaf-to-root order".
+
+**Test Coverage:**
+- Basic Construction and Chain Methods (4 tests) - single node depth 0, 2/3-level chains, leaf-to-root order
+- BuildChain Static Factory Method (13 tests):
+  - Null/empty validation (2 tests) - throws ArgumentException
+  - Single-node chain (1 test) - depth 0, self-signed root
+  - Multi-level chains (2 tests) - 2-level and 3-level construction
+  - GetChainSubjects verification (3 tests) - 2/3/5-level chains return correct leaf-to-root order
+  - Depth verification (1 test) - 5-level chain returns depth 4
+- KeyHistoryNode (4 tests) - history length tracking, ActiveFrom timestamp
+
+**Total:** 17 test cases, all passing.
+
+---
