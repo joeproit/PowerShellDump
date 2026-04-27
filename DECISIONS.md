@@ -8,6 +8,26 @@ Rationale: [one sentence why]
 
 ---
 
+### 26_SecureMemory.ps1 — 2026-04-26
+
+**Decision:** Added `PinnedKeyBuffer.FromPassword()` to derive a 32-byte PBKDF2 key into a pinned buffer, and created Pester 5.x tests covering deterministic derivation, zeroization on `Dispose()`, and Windows-only DPAPI guards.
+
+**Rationale:** The secure-memory topic needs both key derivation and disposal guarantees to demonstrate pinned-buffer handling without leaking secret material.
+
+**Implementation Details:**
+- `FromPassword()` uses `Rfc2898DeriveBytes.Pbkdf2()` with SHA-256 and 100000 iterations
+- Derived bytes are copied into the pinned buffer and cleared afterward
+- `DpapiKeyVault` now uses `RuntimeInformation.IsOSPlatform()` so the class parses cleanly inside PowerShell methods
+
+**Test Coverage:**
+- PBKDF2 derivation and pinned buffer length (1 test)
+- Dispose zeroization and object disposal behavior (1 test)
+- DPAPI Windows-only guard behavior (1 test)
+
+**Total:** 3 test cases, all passing.
+
+---
+
 ### 08_ReplayPrevention.ps1 — 2026-04-26
 
 **Decision:** Added `NonceManager.GetWindowStats()` to report active nonce count and remaining TTL, and created Pester 5.x tests covering first-use success, replay rejection, and post-window reuse.

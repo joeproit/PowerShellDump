@@ -36,6 +36,21 @@ class PinnedKeyBuffer : System.IDisposable {
         return $buf
     }
 
+    static [PinnedKeyBuffer] FromPassword([string]$password, [byte[]]$salt) {
+        $buf = [PinnedKeyBuffer]::new(32)
+        $derived = [System.Security.Cryptography.Rfc2898DeriveBytes]::Pbkdf2(
+            $password,
+            $salt,
+            100000,
+            [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+            32)
+
+        [System.Buffer]::BlockCopy($derived, 0, $buf._buffer, 0, $buf._buffer.Length)
+        [System.Array]::Clear($derived, 0, $derived.Length)
+
+        return $buf
+    }
+
     [byte[]] ReadBytes() {
         if ($this._disposed) { throw [System.ObjectDisposedException]'PinnedKeyBuffer' }
         $copy = [byte[]]::new($this._buffer.Length)
@@ -60,14 +75,14 @@ class PinnedKeyBuffer : System.IDisposable {
 # DPAPI vault (Windows only)
 class DpapiKeyVault {
     [byte[]] Protect([byte[]]$secret) {
-        if (-not $IsWindows) { throw [System.PlatformNotSupportedException]'DPAPI is Windows only' }
+        if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) { throw [System.PlatformNotSupportedException]'DPAPI is Windows only' }
         return [System.Security.Cryptography.ProtectedData]::Protect(
             $secret, $null,
             [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
     }
 
     [byte[]] Unprotect([byte[]]$blob) {
-        if (-not $IsWindows) { throw [System.PlatformNotSupportedException]'DPAPI is Windows only' }
+        if (-not [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)) { throw [System.PlatformNotSupportedException]'DPAPI is Windows only' }
         return [System.Security.Cryptography.ProtectedData]::Unprotect(
             $blob, $null,
             [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
