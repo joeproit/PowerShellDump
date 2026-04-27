@@ -50,6 +50,22 @@ class NonceManager {
         }
     }
 
+    [hashtable] GetWindowStats() {
+        $this._Evict()
+
+        $remainingSeconds = 0
+        if ($this._eviction.Count -gt 0) {
+            $oldest = $this._eviction.Peek()
+            $expiresAt = $this._timestamps[$oldest].AddSeconds($this._windowSeconds)
+            $remainingSeconds = [math]::Max(0, [math]::Ceiling(($expiresAt - [datetime]::UtcNow).TotalSeconds))
+        }
+
+        return @{
+            NonceCount = $this._seen.Count
+            WindowRemainingSeconds = [int]$remainingSeconds
+        }
+    }
+
     [int] WindowedNonceCount() { return $this._seen.Count }
 }
 

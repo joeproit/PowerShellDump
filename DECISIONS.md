@@ -8,6 +8,26 @@ Rationale: [one sentence why]
 
 ---
 
+### 08_ReplayPrevention.ps1 — 2026-04-26
+
+**Decision:** Added `NonceManager.GetWindowStats()` to report active nonce count and remaining TTL, and created Pester 5.x tests covering first-use success, replay rejection, and post-window reuse.
+
+**Rationale:** The replay-prevention topic needs observable window state for validation, and the window-expiry path is easiest to verify with a short-lived in-process nonce cache.
+
+**Implementation Details:**
+- `GetWindowStats()` evicts expired nonces before reporting state
+- Remaining window time is derived from the oldest tracked nonce
+- Tests use a 1-second replay window for deterministic expiry coverage
+
+**Test Coverage:**
+- Nonce stats reporting (1 test)
+- First-use success and replay rejection (1 test)
+- Expiry-based nonce reuse (1 test)
+
+**Total:** 3 test cases, all passing.
+
+---
+
 ### 01_ClassMechanics.ps1 — 2026-04-26
 
 **Decision:** Created comprehensive Pester 5.x test suite without running tests locally due to PowerShell not being available in the macOS environment.
