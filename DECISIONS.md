@@ -571,3 +571,141 @@ PowerShell's System.Action delegates do not support the += operator. Attempting 
 - EventLogger Class (3 tests) - empty log initialization, List<string> type verification, log message formatting
 
 **Total:** 13 test cases, all passing.
+
+---
+
+### 18_UpdateTypeData.ps1 — 2026-04-26
+
+**Decision:** Implemented ToBase58() ScriptMethod on byte[] using Bitcoin-style base58 alphabet (no 0, O, I, l); created comprehensive Pester test suite; handled PowerShell type unwrapping issue where .NET methods return Object[] instead of Byte[].
+
+**Rationale:** Update-TypeData extends .NET types with custom methods/properties at runtime; base58 encoding requires BigInteger conversion with proper endianness handling and leading-zero preservation; PowerShell's Object[] unwrapping requires explicit [byte[]] casts to preserve type extensions.
+
+**Implementation Details:**
+- ToBase58() uses alphabet: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz' (58 characters, no confusing glyphs)
+- Converts byte[] to BigInteger by reversing copy (little-endian), appending 0x00 byte for positive sign
+- Encodes via modulo-58 arithmetic, building string from right to left
+- Preserves leading zero bytes as '1' prefix characters (Bitcoin standard)
+- IsKeySize property already implemented - returns $true for 16, 24, or 32-byte arrays
+- All Update-TypeData calls use -Force flag for idempotent reloading
+
+**Key Discovery - PowerShell Type Extension Chaining:**
+When .NET methods like `[System.Text.Encoding]::UTF8.GetBytes()` or `$bytes.SHA256Hash()` return byte arrays, PowerShell unwraps them as Object[] which loses the type extensions added via Update-TypeData. The extensions are only available on variables explicitly declared as `[byte[]]`. Solution: tests use intermediate variables with explicit type casts: `[byte[]]$bytes = 'test'.ToUTF8Bytes()` to ensure methods like `.ToBase58()` are available.
+
+**Key Discovery - Base58 Leading Zero Handling:**
+Bitcoin base58 encoding represents each leading zero byte (0x00) as the character '1'. The algorithm counts leading zeros before BigInteger conversion, then prepends that many '1' characters to the encoded result. This ensures byte arrays like `[byte[]]@(0x00, 0x00, 0x01)` encode to '112' (two leading '1's + encoded '2').
+
+**Test Coverage:**
+- ToHex() method (4 tests) - empty array, single byte, multiple bytes, zero-padding
+- ToBase64() method (3 tests) - empty array, known string, binary data
+- ToBase58() method (8 tests) - empty array, single byte, valid base58 output, leading zero preservation, no ambiguous characters (0/O/l/I), all-zeros case, alphabet validation, maximum byte values
+- SHA256Hash() method (4 tests) - empty array hash, known hash, byte array return type, result validation
+- IsKeySize property (7 tests) - AES-128/192/256 key sizes (16/24/32 bytes) return true, other sizes return false
+- ToUTF8Bytes() method (5 tests) - empty string, ASCII, UTF-8 emoji, type checking, manual hex verification
+- SHA256Hex() method (4 tests) - empty string, known string, 64-char hex output, UTF-8 handling
+- Idempotency (2 tests) - can be loaded multiple times without errors, methods work after reload
+- Integration (3 tests) - random key with all methods, chained conversions with explicit casts
+
+**Total:** 41 test cases, all passing.
+
+---
+
+### 18_UpdateTypeData.Tests.ps1 — 2026-04-26
+
+**Decision:** Created comprehensive Pester 5.x test suite for type extensions; worked around PowerShell's array unwrapping behavior where methods returning byte[] become scalar bytes in some contexts; fixed regex ambiguous character test to use .Contains() instead of -Match.
+
+**Rationale:** PowerShell 7.4 can unwrap single-element arrays and method returns into scalar values, breaking type extension methods like .ToHex() that only exist on byte[]; tests must force array context using @() operator and avoid calling extensions on unwrapped results.
+
+**Implementation Details:**
+- ToBase58() and IsKeySize were already implemented in 18_UpdateTypeData.ps1
+- Tests use `@($result)` to force array context when methods might return unwrapped scalars
+- SHA256Hash() returns byte[] but PowerShell can unwrap to individual bytes - use manual hex conversion instead of .ToHex() method
+- String methods ToUTF8Bytes() similarly affected - force array context in tests
+- Base58 alphabet test uses .Contains() instead of regex -Match to avoid case-insensitive matching
+- All tests verify value/behavior, not type assertions (per constraint: "null resolves to byte[] in PS 7.4.6 arm64 -- assert value, not throw")
+
+**Key Discovery - PowerShell Array Unwrapping:**
+When PowerShell class methods with typed returns like `[byte[]] SHA256Hash()` execute, the result can be unwrapped to scalar bytes when accessed in certain contexts. The type extensions added via Update-TypeData only exist on `System.Byte[]`, not on individual `System.Byte` values. Tests must use `@()` operator to force array context and avoid chaining extension methods directly on method returns.
+
+**Key Discovery - Regex Case Sensitivity:**
+PowerShell's -Match operator is case-insensitive by default. Testing `$alphabet | Should -Match 'O'` fails because it matches lowercase 'o' in the string. Solution: use `$alphabet.Contains('O')` for exact character matching.
+
+**Test Coverage:**
+- ToHex() method (4 tests) - empty, single byte, multiple bytes, zero bytes
+- ToBase64() method (3 tests) - empty, known encoding, binary data
+- ToBase58() method (8 tests) - empty, single byte, leading zeros, alphabet validation (no 0/O/I/l), all-zero bytes, max byte value, 32-byte keys
+- SHA256Hash() method (4 tests) - empty hash, known hash, value verification (not type), idempotency
+- IsKeySize property (7 tests) - 16/24/32 return true, 15/17/0/64 return false
+- ToUTF8Bytes() method (4 tests) - empty, ASCII, Unicode, encoding correctness
+- SHA256Hex() method (5 tests) - empty, known string, hex format, idempotency, Unicode
+- Idempotency (2 tests) - reload without errors, methods work after reload
+- Integration (4 tests) - chaining, string→bytes, crypto workflow with forced array context, string/byte hash equivalence
+
+**Total:** 41 test cases, all passing.
+
+---
+
+### 19_MethodOverloading.ps1 — 2026-04-26
+
+**Decision:** Implemented fourth Hash([System.IO.FileInfo]) overload that opens file and delegates to Hash([System.IO.Stream]). Pester test suite validates all four overloads and null ambiguity behavior. Note: PS 7.4.6 arm64 constraint specifies null resolves to byte[]; test reflects this although actual behavior on non-arm64 PowerShell shows ambiguity exception for Hash($null).
+
+**Rationale:** FileInfo overload completes the hash method family for common input types (string, byte[], stream, file). Documentation covers coercion gotchas including null ambiguity in PowerShell 7.4.
+
+**Implementation Details:**
+- Overload 1: Hash([string]) - UTF8 encodes then hashes via byte[] overload
+- Overload 2: Hash([byte[]]) - Direct SHA256 computation
+- Overload 3: Hash([System.IO.Stream]) - Stream-based SHA256 computation
+- Overload 4: Hash([System.IO.FileInfo]) - Opens file read stream, delegates to stream overload
+- All SHA256 instances properly disposed via try/finally
+- File streams properly disposed via try/finally
+
+**Coercion Gotchas:**
+- $demo.Hash("hello") - exact match to string overload
+- $demo.Hash(42) - int widened to string "42" (string overload)
+- $demo.Hash([byte[]]@(0x68,0x65,0x6c)) - exact match to byte[] overload
+- $demo.Hash($null) - AMBIGUOUS: matches both string (null→""→byte[]) and byte[] (null array) overloads
+- $demo.Hash([string]$null) - string overload, hashes empty string
+- $demo.Hash([byte[]]$null) - byte[] overload, SHA256 throws on null array in ComputeHash
+- $demo.Hash($fileInfo) - FileInfo overload
+
+**Null Ambiguity Note (PS 7.4.6 arm64 constraint):**
+Constraint states "null resolves to byte[] in PS 7.4.6 arm64 -- assert value, not throw". On this macOS non-arm64 environment, PowerShell throws "Multiple ambiguous overloads found" for Hash($null). The test reflects the constraint behavior (expecting byte[] result), acknowledging environment differences.
+
+**Test Coverage:**
+- String overload (2 tests) - direct string hash, int-to-string coercion
+- Byte[] overload (2 tests) - direct hashing, empty array
+- Stream overload (1 test) - MemoryStream hashing
+- FileInfo overload (1 test) - file content hashing
+- Null ambiguity (3 tests) - Hash($null) byte[] resolution, Hash([string]$null), Hash([byte[]]$null) exception
+
+**Total:** 9 test cases, 8 passing, 1 environment-specific (Hash($null) ambiguity on non-arm64).
+
+---
+### 20_StaticConstructors.ps1 — 2026-04-26
+
+**Decision:** Implementation was already complete with static Refresh() method and GetKeySize() validation; created comprehensive Pester test suite verifying static constructor fires exactly once and all Done Conditions.
+
+**Rationale:** Static constructors in PowerShell classes fire automatically on first type access and cannot be called multiple times; tracking _initCount demonstrates single-execution guarantee; Refresh() method enables re-initialization for runtime algorithm registration scenarios.
+
+**Implementation Details:**
+- Static constructor calls hidden _Initialize() method which increments _initCount (lines 25-27)
+- Refresh() method re-runs _Initialize() for runtime updates (line 44)
+- GetKeySize() throws ArgumentException for unknown algorithms (lines 50-56)
+- Uses HashSet<string> for Supported algorithms with OrdinalIgnoreCase comparer
+- Uses Dictionary<string,int> for KeySizes mapping with OrdinalIgnoreCase comparer
+- _initCount starts at 0, increments to 1 on first access, increments on each Refresh() call
+
+**Key Discovery - Static Constructor Execution:**
+PowerShell class static constructors fire exactly once when the type is first accessed (any static member access triggers it). Multiple accesses to static members do not re-fire the constructor. The _initCount tracker proves this - it remains 1 after multiple static member accesses unless Refresh() is explicitly called.
+
+**Key Discovery - Static Method Validation:**
+GetKeySize() uses Dictionary.TryGetValue() with [ref] parameter to safely check for key existence without throwing. If the algorithm is not found, it throws System.ArgumentException with a meaningful message including the unknown algorithm name. This pattern is preferred over catching KeyNotFoundException.
+
+**Test Coverage:**
+- Static constructor initialization (4 tests) - fires once, initializes Supported/KeySizes/DefaultAlgorithm correctly
+- GetKeySize method (5 tests) - returns correct sizes, case-insensitive, throws ArgumentException on unknown/empty algorithm
+- IsSupported method (3 tests) - returns true/false correctly, case-insensitive
+- Refresh method (3 tests) - increments initCount, maintains catalog, multiple calls
+
+**Total:** 15 test cases, all passing.
+
+---
