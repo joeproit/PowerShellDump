@@ -8,6 +8,8 @@ Advanced OOP and cryptographic programming patterns for PowerShell 7.x.
 
 ## What is in here
 
+[https://cyguin.com/writing/powershell-cryptography](https://cyguin.com/writing/powershell-cryptography)
+
 The PS crypto ecosystem is thin. Blog posts stop at AES-CBC. Nobody covers key rotation, algorithm agility, or pinned memory in a PowerShell context. This library covers the production concerns that actually matter.
 
 | File | Topic |
@@ -63,7 +65,7 @@ Import-Module ./PSCryptoPatterns.psd1
 
 ## Read the paper
 
-cyguin.com
+[cyguin.com](https://cyguin.com/writing/powershell-cryptography)
 
 ## License
 
