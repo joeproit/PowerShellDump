@@ -546,6 +546,29 @@ A System.Collections.Generic.List<string> with Count=0 outputs nothing when eval
 
 ---
 
+### 24_AlgorithmAgility.ps1 — 2026-04-26
+
+**Decision:** Added `Fips140Profile` and `ProfileFactory` to make crypto behavior selectable by profile name; updated `AgileEncryptor.Hash()` to honor the selected profile and normalize null input to an empty byte array.
+
+**Rationale:** The library now swaps hash and KDF settings through construction-time profile selection without changing call sites, while the null guard keeps hash behavior stable across PS 7.4 runtimes.
+
+**Implementation Details:**
+- `Fips140Profile` uses AES-256-GCM, SHA-384, PBKDF2-SHA256, and 310000 iterations
+- `ProfileFactory.Create()` accepts default and FIPS aliases by name string
+- `AgileEncryptor.Encrypt()` stores the profile version in the package metadata
+- `AgileEncryptor.Hash()` maps SHA-256 and SHA-384 explicitly and treats `$null` as `byte[]::new(0)`
+
+**Test Coverage:**
+- ProfileFactory default alias resolution
+- FIPS profile alias resolution and property validation
+- Hash behavior for default, FIPS, and null input
+- Profile swap behavior
+- Encryption package metadata and round-trip decryption
+
+**Total:** 10 test cases, all passing.
+
+---
+
 ### 17_EventsDelegates.ps1 — 2026-04-26
 
 **Decision:** Created Pester test suite using System.Delegate.Combine() for multiple event subscribers; wrapped EventLogger instance methods in scriptblock delegates cast to System.Action[T] type.
@@ -800,4 +823,3 @@ AES-GCM with empty plaintext produces 28-byte ciphertext (12-byte nonce + 16-byt
 - Edge cases (3 tests) - empty plaintext (0 bytes), large plaintext (1MB), unique key ID generation
 
 **Total:** 15 test cases, all passing.
-
