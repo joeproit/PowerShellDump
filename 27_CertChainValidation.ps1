@@ -70,6 +70,20 @@ class CertificateValidator {
         return $result
     }
 
+    [hashtable] ValidateFromFile([string]$certPath) {
+        if ([string]::IsNullOrWhiteSpace($certPath)) {
+            throw [System.ArgumentException]::new('certPath cannot be null or empty', 'certPath')
+        }
+
+        $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($certPath)
+        try {
+            return $this.Validate($cert)
+        }
+        finally {
+            $cert.Dispose()
+        }
+    }
+
     static [CertificateValidator] Strict() {
         $v = [CertificateValidator]::new()
         $v.CheckRevocation    = $true

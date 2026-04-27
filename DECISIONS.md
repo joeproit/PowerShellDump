@@ -8,6 +8,26 @@ Rationale: [one sentence why]
 
 ---
 
+### 27_CertChainValidation.ps1 — 2026-04-26
+
+**Decision:** Added `CertificateValidator.ValidateFromFile()` to load and validate X.509 certificates directly from disk, and kept the `Development()` preset as the non-revocation, untrusted-root-friendly mode for self-signed fixtures.
+
+**Rationale:** The certificate-chain topic needs a file-based convenience path for reference usage, and the development preset makes self-signed validation deterministic for unit tests.
+
+**Implementation Details:**
+- `ValidateFromFile()` throws `ArgumentException` on blank paths, loads `X509Certificate2` from disk, and disposes the temporary certificate object after validation
+- `Development()` remains configured with `CheckRevocation = $false` and `AllowUntrustedRoot = $true`
+- Pester fixtures generate a self-signed cert on Windows with `New-SelfSignedCertificate` and on non-Windows with `openssl`
+
+**Test Coverage:**
+- Development preset configuration (1 test)
+- Self-signed certificate validation from file (1 test)
+- Strict-mode expiration handling (1 test)
+
+**Total:** 3 test cases, all passing.
+
+---
+
 ### 26_SecureMemory.ps1 — 2026-04-26
 
 **Decision:** Added `PinnedKeyBuffer.FromPassword()` to derive a 32-byte PBKDF2 key into a pinned buffer, and created Pester 5.x tests covering deterministic derivation, zeroization on `Dispose()`, and Windows-only DPAPI guards.
